@@ -13,9 +13,9 @@
         },
         {
           "type": "service",
-          "service": "gpt-2",
+          "service": "gpt",
           "format": "url",
-          "env": "GPT2_URL"
+          "env": "GPT_URL"
         }
       ]
     },
@@ -23,7 +23,7 @@
       "root": "sources/Arabic-Poems-Generation/albert",
       "runtime": "python"
     },
-    "gpt-2": {
+    "gpt": {
       "root": "sources/Arabic-Poems-Generation/gpt-2",
       "runtime": "python"
     }
