@@ -19,8 +19,10 @@ export default function PoetCard({ poet }: PoetCardProps) {
           />
         </div>
         <h3 className="disp mt-5 text-[1.7rem] leading-tight">{poet.name}</h3>
-        {poet.ar && <p className="ar text-xl">{poet.ar}</p>}
-        <p className="sc mt-1 text-sm">{poet.years}</p>
+        {poet.ar && <p className="ar text-xl text-ember">{poet.ar}</p>}
+        <p className="sc mt-1 text-sm">
+          {poet.years} &nbsp;&middot;&nbsp; {poet.era}
+        </p>
         <p className="mt-3 text-sm italic">{poet.tag}</p>
       </div>
     </a>

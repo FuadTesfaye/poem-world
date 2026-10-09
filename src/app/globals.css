@@ -260,11 +260,68 @@ a {
 .i4 { background-image: url("/images/poet-i4.jpg"); }
 .i5 { background-image: url("/images/poet-i5.jpg"); }
 .i6 { background-image: url("/images/poet-i6.jpg"); }
+.poet-poe { background-image: url("/images/poet-poe.jpg"); }
+.poet-keats { background-image: url("/images/poet-keats.jpg"); }
+.poet-shelley { background-image: url("/images/poet-shelley.jpg"); }
+.poet-gibran { background-image: url("/images/poet-gibran.jpg"); }
+.poet-shawqi { background-image: url("/images/poet-shawqi.jpg"); }
 
 .dpic {
   background-size: cover;
   background-repeat: no-repeat;
   filter: sepia(0.3) saturate(0.9) contrast(1.04);
+}
+
+/* Classical Arabic Verse Layout */
+.bayt-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  font-family: Amiri, serif;
+}
+
+.bayt-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.55rem 0.8rem;
+  border-bottom: 1px dashed rgba(52, 25, 10, 0.2);
+  transition: background-color 0.2s;
+}
+
+.bayt-row:hover {
+  background-color: rgba(168, 72, 26, 0.04);
+}
+
+.bayt-sadr,
+.bayt-ajuz {
+  font-size: clamp(1.15rem, 1.75vw, 1.6rem);
+  line-height: 1.85;
+  color: #34190a;
+}
+
+@media (min-width: 640px) {
+  .bayt-row {
+    flex-direction: row-reverse;
+    justify-content: space-between;
+    gap: 1.5rem;
+  }
+  .bayt-sadr {
+    flex: 1;
+    text-align: right;
+  }
+  .bayt-separator {
+    color: #a8481a;
+    font-size: 0.95rem;
+    padding: 0 0.5rem;
+    opacity: 0.8;
+  }
+  .bayt-ajuz {
+    flex: 1;
+    text-align: left;
+  }
 }
 
 /* old border: double rule + ornamental corners */

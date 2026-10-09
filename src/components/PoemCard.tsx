@@ -28,7 +28,14 @@ export default function PoemCard({ poem }: PoemCardProps) {
       aria-label={`Read ${stripTags(poem.title)} by ${poetName}`}
     >
       <div className="mat">
-        <p className="sc text-center text-xs opacity-70">No. {roman}</p>
+        <div className="flex items-center justify-between text-xs opacity-75">
+          <span className="sc">No. {roman}</span>
+          {poem.meter ? (
+            <span className="ar text-ember text-[0.95rem]">{poem.meter}</span>
+          ) : (
+            <span className="sc">{poem.era}</span>
+          )}
+        </div>
         <div
           className={`clip ${sh} mx-auto mt-2 ${h} ${widthClass}`}
           style={{ boxShadow: "0 0 0 3px #9a6b1f,0 0 0 5px #34190a" }}
@@ -42,6 +49,9 @@ export default function PoemCard({ poem }: PoemCardProps) {
           className="disp mt-5 text-center text-[1.55rem] leading-tight"
           dangerouslySetInnerHTML={{ __html: poem.title }}
         />
+        {poem.titleAr && (
+          <p className="ar mt-1 text-center text-lg text-ember">{poem.titleAr}</p>
+        )}
         <p className="sc mt-1 text-center text-sm">{poetName}</p>
         <p
           className="mt-3 text-center text-sm italic opacity-80"

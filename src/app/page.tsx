@@ -65,12 +65,12 @@ export default function Home() {
         if (poet) {
           title = `${poet.name} · Diwan`;
         }
+      } else if (parts[0] === "poets") {
+        title = "The Poets · Diwan";
       } else if (parts[0] === "about") {
         title = "About · Diwan";
       } else {
-        if (parts[0] === "poets") {
-          scrollTarget = "poets";
-        } else if (parts[0] === "poems" && parts[1] === "list") {
+        if (parts[0] === "poems" && parts[1] === "list") {
           scrollTarget = "poems";
         }
       }
