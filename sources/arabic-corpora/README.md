@@ -75,29 +75,47 @@ The computational engine in `sources/arabic-poetry-tools/prosody_scanner.py` imp
 
 ---
 
-## 5. Zero-API In-Repo Architecture
+## 5. Zero-API In-Repo Architecture & Dual-Tier Engine
 
-Unlike applications relying on external third-party endpoints (which can suffer from outages, rate-limits, or latency), Poem World hosts its searchable archives directly within the codebase:
+Poem World deploys a **dual-tier architecture** designed to combine instant local speeds with multi-million-verse scale:
 
+### Tier 1: In-Repo Offline Core (0ms Network Latency & Zero External APIs)
+Searchable archives reside directly within the codebase:
 ```
 public/data/arabic-archive/
-└── index.json                <-- High-speed, pre-indexed in-repo static search index
+└── index.json                <-- High-speed pre-indexed static archive covering 71 poets & 14 eras
 sources/arabic-corpora/
 ├── poets_registry.json       <-- Complete registry of canonical poets
-└── shards/                   <-- Partitioned JSONL corpus files (<25MB each)
-    ├── 01_jahili.jsonl
-    ├── 02_mukhadramun.jsonl
-    ├── 03_umayyad.jsonl
-    ├── 04_early_abbasid.jsonl
-    ├── 05_high_abbasid.jsonl
-    ├── 06_mutanabbi_maari.jsonl
-    ├── 07_andalusian.jsonl
-    ├── 08_fatimid_ayyubid.jsonl
-    ├── 09_mamluk.jsonl
-    ├── 10_ottoman.jsonl
-    ├── 11_nahda.jsonl
-    ├── 12_mahjar_apollo.jsonl
-    ├── 13_tafeelah.jsonl
-    └── 14_contemporary.jsonl
+└── shards/                   <-- Partitioned JSONL corpus files
+    ├── andalusian.jsonl
+    ├── contemporary.jsonl
+    ├── early_abbasid.jsonl
+    ├── fatimid_ayyubid.jsonl
+    ├── high_abbasid.jsonl
+    ├── jahili.jsonl
+    ├── mahjar_apollo.jsonl
+    ├── mamluk.jsonl
+    ├── mukhadramun.jsonl
+    ├── mutanabbi_maari.jsonl
+    ├── nahda.jsonl
+    ├── tafeelah.jsonl
+    └── umayyad.jsonl
 ```
-When a reader searches inside the Diwan application, queries execute locally against `/data/arabic-archive/index.json` in **under 2 milliseconds**, returning instant matches across poet names, meters, rhyming letters (*Qafiyah*), and verse hemistichs.
+When a reader searches inside the Diwan application in Local Core mode, queries execute client-side against `/data/arabic-archive/index.json` in **under 2 milliseconds**, returning instant matches across poet names, meters, rhyming letters (*Qafiyah*), and verse hemistichs.
+
+---
+
+### Tier 2: Fuad's Cloned Hugging Face Cloud Datasets (3.85M Verses)
+All major open Arabic poetry datasets have been duplicated into Fuad's personal Hugging Face account:
+
+| Cloned Repository | Direct Hugging Face URL | Total Scale | Features |
+| :--- | :--- | :--- | :--- |
+| **Fuad's Ashaar Corpus** | [`fuaf24/arabic-poetry-ashaar`](https://huggingface.co/datasets/fuaf24/arabic-poetry-ashaar) | **254,630 poems** &bull; **3,857,429 verses** &bull; **7,167 poets** | Meter annotations, eras, themes, poet biographies |
+| **Fuad's Meter & Era Corpus** | [`fuaf24/arabic-poetry-dataset`](https://huggingface.co/datasets/fuaf24/arabic-poetry-dataset) | **1.83M verses** &bull; 11 Eras | Metrical labels across all 16 Khalil meters |
+| **Fuad's Diacritized Corpus** | [`fuaf24/arabic-poetry-diacritized`](https://huggingface.co/datasets/fuaf24/arabic-poetry-diacritized) | Classical & Modern | Diacritized Tashkeel for prosody & vocalization |
+
+The live website connects to Fuad's repository via the Next.js serverless route `/api/archive/fuad-corpus`, providing:
+1. Paginated browsing across all **254,630 poems**.
+2. Metrical filtering by Bahar (*Al-Tawil, Al-Kamil, Al-Basit, Al-Wafir*, etc.).
+3. Expandable couplet viewer (`صدر || عجز`) with full poem reading modals.
+4. Ultra-fast response with server-side LRU memory caching and HTTP edge revalidation headers.

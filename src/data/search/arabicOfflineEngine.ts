@@ -142,3 +142,56 @@ export async function searchInRepoArabicArchive(
     source: "ديوان العرب (In-Repo Local Archive)",
   }));
 }
+
+export interface FuadCorpusPoemResult {
+  id: string;
+  title: string;
+  poet: string;
+  meter: string;
+  era: string;
+  theme: string;
+  poetBio: string;
+  poetUrl?: string;
+  poemUrl?: string;
+  verses: string[];
+  couplets: string[];
+  totalVerses: number;
+}
+
+export interface FuadCorpusPage {
+  source: string;
+  status: string;
+  totalCorpusPoems: number;
+  totalCorpusVerses: number;
+  totalCorpusPoets: number;
+  offset: number;
+  limit: number;
+  meterFilter: string;
+  returned: number;
+  poems: FuadCorpusPoemResult[];
+  message?: string;
+}
+
+/**
+ * Streams paginated records directly from Fuad's personal Hugging Face repository:
+ * fuaf24/arabic-poetry-ashaar (254,630 poems / 3,857,429 verses / 7,167 poets)
+ */
+export async function fetchFuadCorpusStream(
+  offset: number = 0,
+  limit: number = 12,
+  meter: string = "all"
+): Promise<FuadCorpusPage | null> {
+  try {
+    const params = new URLSearchParams({
+      offset: String(offset),
+      limit: String(limit),
+      meter,
+    });
+    const res = await fetch(`/api/archive/fuad-corpus?${params.toString()}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.error("fetchFuadCorpusStream error:", err);
+    return null;
+  }
+}

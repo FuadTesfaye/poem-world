@@ -14,7 +14,12 @@ import {
 } from "@/data/diwan";
 import PoemCard from "./PoemCard";
 import PoetCard from "./PoetCard";
-import { searchInRepoArabicArchive } from "@/data/search/arabicOfflineEngine";
+import {
+  searchInRepoArabicArchive,
+  fetchFuadCorpusStream,
+  FuadCorpusPoemResult,
+  FuadCorpusPage,
+} from "@/data/search/arabicOfflineEngine";
 
 interface DiwanProps {
   routeParts: string[];
@@ -61,12 +66,43 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
   const [visibleCount, setVisibleCount] = useState<number>(12);
   const [readingMode, setReadingMode] = useState<"original" | "parallel" | "stanza" | "translation">("parallel");
 
-  // In-Repo Offline Archive Search State (Zero External API Calls)
+  // Dual-Tier Arabic Archive Engine State
+  const [archiveMode, setArchiveMode] = useState<"local" | "cloud">("local");
   const [archiveQuery, setArchiveQuery] = useState<string>("");
   const [archiveMeter, setArchiveMeter] = useState<string>("all");
   const [archiveSearching, setArchiveSearching] = useState<boolean>(false);
   const [archiveResults, setArchiveResults] = useState<ExternalResult[]>([]);
   const [archiveSearched, setArchiveSearched] = useState<boolean>(false);
+
+  // Fuad's 3.85M Corpus Cloud Explorer State (fuaf24/arabic-poetry-ashaar)
+  const [cloudOffset, setCloudOffset] = useState<number>(0);
+  const [cloudLimit] = useState<number>(12);
+  const [cloudMeter, setCloudMeter] = useState<string>("all");
+  const [cloudLoading, setCloudLoading] = useState<boolean>(false);
+  const [cloudData, setCloudData] = useState<FuadCorpusPage | null>(null);
+  const [activeCloudPoemModal, setActiveCloudPoemModal] = useState<FuadCorpusPoemResult | null>(null);
+
+  async function loadCloudPage(newOffset: number, meterToUse: string = cloudMeter) {
+    setCloudLoading(true);
+    try {
+      const data = await fetchFuadCorpusStream(newOffset, cloudLimit, meterToUse);
+      if (data) {
+        setCloudData(data);
+        setCloudOffset(newOffset);
+      }
+    } catch (err) {
+      console.error("Failed to load cloud corpus page:", err);
+    } finally {
+      setCloudLoading(false);
+    }
+  }
+
+  function handleSwitchToCloud() {
+    setArchiveMode("cloud");
+    if (!cloudData && !cloudLoading) {
+      loadCloudPage(0, cloudMeter);
+    }
+  }
 
   const routeType = routeParts[0] || "poems";
   const routeParam = routeParts[1];
@@ -1211,85 +1247,285 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
           )}
         </section>
 
-        {/* In-Repo Offline Arabic Archive Explorer (Zero External API Calls) */}
+        {/* Dual-Tier Arabic Archive: In-Repo Offline Core & Fuad's 3.85M Cloud Explorer */}
         <section className="px-[4vw] py-16 border-t-2 border-gilt/60 bg-amber-950/5">
-          <div className="text-center max-w-3xl mx-auto">
+          <div className="text-center max-w-4xl mx-auto">
             <p className="sc text-xs text-ember tracking-widest uppercase font-bold">
-              In-Repo Offline Archive &bull; ديوان العرب المحلي
+              Corpus Archive &bull; ديوان العرب الشامل
             </p>
             <h2 className="disp text-[clamp(2.5rem,5.5vw,4.8rem)] text-ink mt-2 leading-tight">
               <i>D</i>iwan <i>A</i>l-<i>A</i>rab &bull; ديوان العرب
             </h2>
-            <p className="italic text-base sm:text-lg opacity-90 mt-2 leading-relaxed">
-              بحث فوري ومباشر في مستودع الشعر العربي المخزن محلياً داخل المشروع — بدون استدعاء أي خوادم خارجية <strong>(Zero External API Calls)</strong> عبر 14 عصراً تاريخياً وأكثر من 3.8 مليون بيت شعري.
-            </p>
 
-            {/* Metrical Filter Chips (بحور الخليل) */}
-            <div className="mt-6 flex flex-wrap justify-center gap-1.5 text-xs">
-              <span className="sc mr-1 text-ink/70 self-center">البحر:</span>
-              {[
-                { id: "all", label: "كل البحور (All)" },
-                { id: "الطويل", label: "الطويل" },
-                { id: "الكامل", label: "الكامل" },
-                { id: "البسيط", label: "البسيط" },
-                { id: "الوافر", label: "الوافر" },
-                { id: "الخفيف", label: "الخفيف" },
-                { id: "الرمل", label: "الرمل" },
-                { id: "المتقارب", label: "المتقارب" },
-              ].map((m) => (
-                <button
-                  key={m.id}
-                  onClick={() => setArchiveMeter(m.id)}
-                  className={`sc px-2.5 py-1 rounded-sm border transition text-xs ${
-                    archiveMeter === m.id
-                      ? "bg-ember text-paper border-ember font-bold shadow-sm"
-                      : "border-ink/20 hover:border-ember text-ink"
-                  }`}
-                >
-                  {m.label}
-                </button>
-              ))}
+            {/* Scale & Cloned HF Repository Banner */}
+            <div className="mt-4 flex flex-wrap justify-center items-center gap-3 text-xs">
+              <span className="bg-amber-950/10 px-3 py-1 rounded-full font-semibold border border-amber-950/20">
+                📚 <strong>254,630</strong> قصيدة
+              </span>
+              <span className="bg-amber-950/10 px-3 py-1 rounded-full font-semibold border border-amber-950/20">
+                📜 <strong>3,857,429</strong> بيت شعري
+              </span>
+              <span className="bg-amber-950/10 px-3 py-1 rounded-full font-semibold border border-amber-950/20">
+                👥 <strong>7,167</strong> شاعر عربي
+              </span>
+              <a
+                href="https://huggingface.co/datasets/fuaf24/arabic-poetry-ashaar"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-ember/15 text-ember hover:bg-ember hover:text-paper transition px-3 py-1 rounded-full font-bold border border-ember/30"
+              >
+                🤗 مستنسخ في fuaf24/arabic-poetry-ashaar &rarr;
+              </a>
             </div>
 
-            <form onSubmit={searchLiveArchive} className="mt-6 flex flex-wrap gap-2 justify-center">
-              <input
-                type="search"
-                value={archiveQuery}
-                onChange={(e) => setArchiveQuery(e.target.value)}
-                placeholder="ابحث في المستودع المحلي (مثال: المتنبي، قفا نبك، سقط الزند، دمشق، ليلى...)"
-                className="w-full max-w-lg border-2 border-ember/60 bg-paper/80 px-4 py-2.5 text-center italic text-ink outline-none focus:border-ember focus:bg-paper"
-              />
-              <button type="submit" className="dbtn font-bold px-6 py-2.5" disabled={archiveSearching}>
-                {archiveSearching ? "جاري البحث في المستودع..." : "بحث في ديوان العرب"}
+            {/* Mode Switcher Tabs */}
+            <div className="mt-8 flex justify-center gap-2 border-b border-ink/15 pb-4">
+              <button
+                type="button"
+                onClick={() => setArchiveMode("local")}
+                className={`sc px-4 py-2 text-sm font-bold rounded-sm border transition flex items-center gap-2 ${
+                  archiveMode === "local"
+                    ? "bg-ink text-paper border-ink shadow"
+                    : "border-ink/20 hover:border-ember text-ink/80 hover:text-ink"
+                }`}
+              >
+                <span>⚡</span>
+                <span>المستودع الفوري المحلي (In-Repo Core &bull; 0ms)</span>
               </button>
-            </form>
+              <button
+                type="button"
+                onClick={handleSwitchToCloud}
+                className={`sc px-4 py-2 text-sm font-bold rounded-sm border transition flex items-center gap-2 ${
+                  archiveMode === "cloud"
+                    ? "bg-ember text-paper border-ember shadow"
+                    : "border-ember/30 text-ember hover:bg-ember/10"
+                }`}
+              >
+                <span>🌐</span>
+                <span>سحابة ديوان فؤاد (Fuad&apos;s 3.85M Corpus &bull; 254K قصيدة)</span>
+              </button>
+            </div>
           </div>
 
-          {archiveSearched && (
-            <div className="mt-12 max-w-6xl mx-auto">
-              <div className="flex items-center justify-between border-b border-amber-950/20 pb-2 mb-6 text-xs">
-                <span className="sc text-ember font-bold uppercase tracking-wider">
-                  نتائج المستودع المحلي المخزن ({archiveResults.length} قصيدة)
-                </span>
-                <span className="italic opacity-70">100% In-Repo Local Query &bull; 0ms Network Latency</span>
+          {/* TAB 1: LOCAL IN-REPO CORE */}
+          {archiveMode === "local" && (
+            <div className="max-w-4xl mx-auto mt-6 text-center">
+              <p className="italic text-sm sm:text-base opacity-80 leading-relaxed max-w-2xl mx-auto">
+                بحث فوري ومباشر في مستودع أمهات القصائد المخزن محلياً داخل المشروع — بدون استدعاء أي خوادم خارجية <strong>(Zero External API Calls)</strong> عبر 14 عصراً تاريخياً وشعراء المعلقات والدواوين الكلاسيكية.
+              </p>
+
+              {/* Metrical Filter Chips */}
+              <div className="mt-5 flex flex-wrap justify-center gap-1.5 text-xs">
+                <span className="sc mr-1 text-ink/70 self-center">البحر:</span>
+                {[
+                  { id: "all", label: "كل البحور (All)" },
+                  { id: "الطويل", label: "الطويل" },
+                  { id: "الكامل", label: "الكامل" },
+                  { id: "البسيط", label: "البسيط" },
+                  { id: "الوافر", label: "الوافر" },
+                  { id: "الخفيف", label: "الخفيف" },
+                  { id: "الرمل", label: "الرمل" },
+                  { id: "المتقارب", label: "المتقارب" },
+                ].map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => setArchiveMeter(m.id)}
+                    className={`sc px-2.5 py-1 rounded-sm border transition text-xs ${
+                      archiveMeter === m.id
+                        ? "bg-ember text-paper border-ember font-bold shadow-sm"
+                        : "border-ink/20 hover:border-ember text-ink"
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
               </div>
 
-              {archiveResults.length > 0 ? (
+              <form onSubmit={searchLiveArchive} className="mt-6 flex flex-wrap gap-2 justify-center">
+                <input
+                  type="search"
+                  value={archiveQuery}
+                  onChange={(e) => setArchiveQuery(e.target.value)}
+                  placeholder="ابحث في المستودع المحلي (مثال: المتنبي، قفا نبك، سقط الزند، دمشق، ليلى...)"
+                  className="w-full max-w-lg border-2 border-ember/60 bg-paper/80 px-4 py-2.5 text-center italic text-ink outline-none focus:border-ember focus:bg-paper"
+                />
+                <button type="submit" className="dbtn font-bold px-6 py-2.5" disabled={archiveSearching}>
+                  {archiveSearching ? "جاري البحث في المستودع..." : "بحث فوري في المستودع"}
+                </button>
+              </form>
+
+              {archiveSearched && (
+                <div className="mt-12 max-w-6xl mx-auto text-left">
+                  <div className="flex items-center justify-between border-b border-amber-950/20 pb-2 mb-6 text-xs">
+                    <span className="sc text-ember font-bold uppercase tracking-wider">
+                      نتائج المستودع المحلي المخزن ({archiveResults.length} قصيدة)
+                    </span>
+                    <span className="italic opacity-70">100% In-Repo Local Query &bull; 0ms Latency</span>
+                  </div>
+
+                  {archiveResults.length > 0 ? (
+                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                      {archiveResults.map((res, i) => (
+                        <div key={i} className="mat flex flex-col justify-between p-5 bg-amber-950/5 border border-amber-950/15 rounded-sm hover:border-ember transition">
+                          <div>
+                            <div className="flex items-center justify-between text-xs opacity-80 border-b border-ink/10 pb-1.5 mb-2">
+                              <span className="sc uppercase text-ember font-bold">{res.source}</span>
+                              {res.meter && <span className="ar font-semibold text-ink/90 bg-amber-950/10 px-2 py-0.5 rounded">{res.meter}</span>}
+                            </div>
+                            <h3 className="disp text-xl mt-1 leading-snug text-ink font-bold">{res.title}</h3>
+                            <p className="sc text-sm mt-1 text-ember font-medium">{res.poet}</p>
+                            <div className="mt-4 space-y-2 text-sm opacity-90 border-t border-ink/10 pt-3" dir="rtl">
+                              {res.lines.map((ln, idx) => {
+                                const parts = ln.split("||");
+                                return (
+                                  <p key={idx} className="leading-relaxed">
+                                    {parts.length === 2 ? (
+                                      <>
+                                        <span>{parts[0].trim()}</span>
+                                        <span className="text-ember mx-1.5">&#10059;</span>
+                                        <span>{parts[1].trim()}</span>
+                                      </>
+                                    ) : (
+                                      ln
+                                    )}
+                                  </p>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          <div className="mt-4 pt-2 border-t border-ink/10 text-xs opacity-60 flex justify-between">
+                            <span>{res.era || "العصر الذهبي"}</span>
+                            <span>مستودع ديوان العرب المحلي</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    !archiveSearching && (
+                      <p className="text-center italic opacity-75 py-8 text-base">
+                        لم يتم العثور على نتائج تطابق &ldquo;{archiveQuery}&rdquo;. جرب اسم شاعر آخر أو بحراً شعرياً مختلفاً.
+                      </p>
+                    )
+                  )}
+                </div>
+              )}
+
+              {/* Callout to Fuad's Cloud Archive */}
+              <div className="mt-12 p-6 bg-ember/5 border border-ember/20 rounded text-center max-w-2xl mx-auto">
+                <p className="font-semibold text-ink text-sm sm:text-base">
+                  تريد تصفح الـ 3.85 مليون بيت شعري و254 ألف قصيدة بالكامل؟
+                </p>
+                <p className="text-xs text-ink/75 mt-1">
+                  تم استنساخ أضخم أرشيف للشعر العربي في حسابك الشخصي على Hugging Face ويمكنك تصفحه فورياً الآن.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleSwitchToCloud}
+                  className="mt-3 dbtn font-bold px-5 py-2 text-xs uppercase"
+                >
+                  🌐 فتح متصفح سحابة ديوان فؤاد (3.85M بيت) &rarr;
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: FUAD'S 3.85M CORPUS CLOUD EXPLORER */}
+          {archiveMode === "cloud" && (
+            <div className="max-w-6xl mx-auto mt-6">
+              <div className="text-center max-w-2xl mx-auto mb-8">
+                <p className="italic text-sm sm:text-base opacity-85 leading-relaxed">
+                  تصفح مباشر لقاعدة بيانات الشعر العربي المستنسخة على حساب فؤاد <strong>(fuaf24/arabic-poetry-ashaar)</strong> تضم أكثر من 254,630 قصيدة و3.85 مليون بيت شعري عبر 7,167 شاعراً عربياً.
+                </p>
+
+                {/* Meter filter chips */}
+                <div className="mt-4 flex flex-wrap justify-center gap-1.5 text-xs">
+                  <span className="sc mr-1 text-ink/70 self-center">البحر الشعري:</span>
+                  {[
+                    { id: "all", label: "كل البحور" },
+                    { id: "الطويل", label: "بحر الطويل" },
+                    { id: "الكامل", label: "بحر الكامل" },
+                    { id: "البسيط", label: "بحر البسيط" },
+                    { id: "الوافر", label: "بحر الوافر" },
+                    { id: "الخفيف", label: "بحر الخفيف" },
+                    { id: "الرمل", label: "بحر الرمل" },
+                    { id: "المتقارب", label: "بحر المتقارب" },
+                  ].map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => {
+                        setCloudMeter(m.id);
+                        loadCloudPage(0, m.id);
+                      }}
+                      className={`sc px-2.5 py-1 rounded-sm border transition text-xs ${
+                        cloudMeter === m.id
+                          ? "bg-ember text-paper border-ember font-bold shadow-sm"
+                          : "border-ink/20 hover:border-ember text-ink"
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Pagination Controls */}
+                <div className="mt-6 flex items-center justify-center gap-4 text-xs font-semibold">
+                  <button
+                    type="button"
+                    disabled={cloudOffset <= 0 || cloudLoading}
+                    onClick={() => loadCloudPage(Math.max(0, cloudOffset - cloudLimit))}
+                    className="px-3 py-1.5 border border-ink/20 rounded disabled:opacity-40 hover:border-ember transition"
+                  >
+                    &laquo; الصفحة السابقة (-12)
+                  </button>
+                  <span className="text-ink/80 sc">
+                    القصائد <strong>{cloudOffset + 1}</strong> &ndash; <strong>{cloudOffset + (cloudData?.returned || 12)}</strong> من أصل <strong>{cloudData?.totalCorpusPoems?.toLocaleString() || "254,630"}</strong>
+                  </span>
+                  <button
+                    type="button"
+                    disabled={cloudLoading}
+                    onClick={() => loadCloudPage(cloudOffset + cloudLimit)}
+                    className="px-3 py-1.5 border border-ink/20 rounded disabled:opacity-40 hover:border-ember transition"
+                  >
+                    الصفحة التالية (+12) &raquo;
+                  </button>
+                </div>
+              </div>
+
+              {/* Cloud Items Grid */}
+              {cloudLoading ? (
+                <div className="py-16 text-center">
+                  <div className="inline-block w-8 h-8 border-2 border-ember border-t-transparent rounded-full animate-spin mb-3" />
+                  <p className="italic text-sm text-ink/70">جاري بث القصائد من مستودع fuaf24 على Hugging Face...</p>
+                </div>
+              ) : cloudData && cloudData.poems.length > 0 ? (
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                  {archiveResults.map((res, i) => (
-                    <div key={i} className="mat flex flex-col justify-between p-5 bg-amber-950/5 border border-amber-950/15 rounded-sm hover:border-ember transition">
+                  {cloudData.poems.map((poem) => (
+                    <div
+                      key={poem.id}
+                      className="mat flex flex-col justify-between p-5 bg-amber-950/5 border border-amber-950/15 rounded-sm hover:border-ember hover:shadow-md transition"
+                    >
                       <div>
                         <div className="flex items-center justify-between text-xs opacity-80 border-b border-ink/10 pb-1.5 mb-2">
-                          <span className="sc uppercase text-ember font-bold">{res.source}</span>
-                          {res.meter && <span className="ar font-semibold text-ink/90 bg-amber-950/10 px-2 py-0.5 rounded">{res.meter}</span>}
+                          <span className="sc uppercase text-ember font-bold text-[10px]">
+                            {poem.theme || "ديوان العرب"}
+                          </span>
+                          <span className="ar font-semibold text-ink/90 bg-amber-950/10 px-2 py-0.5 rounded text-[11px]">
+                            بحر {poem.meter}
+                          </span>
                         </div>
-                        <h3 className="disp text-xl mt-1 leading-snug text-ink font-bold">{res.title}</h3>
-                        <p className="sc text-sm mt-1 text-ember font-medium">{res.poet}</p>
+                        <h3 className="disp text-lg mt-1 leading-snug text-ink font-bold line-clamp-2">
+                          {poem.title}
+                        </h3>
+                        <p className="sc text-sm mt-0.5 text-ember font-medium">
+                          {poem.poet}
+                        </p>
+
+                        {/* Verses Couplets Preview */}
                         <div className="mt-4 space-y-2 text-sm opacity-90 border-t border-ink/10 pt-3" dir="rtl">
-                          {res.lines.map((ln, idx) => {
-                            const parts = ln.split("||");
+                          {poem.couplets.slice(0, 3).map((couplet, cIdx) => {
+                            const parts = couplet.split("||");
                             return (
-                              <p key={idx} className="leading-relaxed">
+                              <p key={cIdx} className="leading-relaxed">
                                 {parts.length === 2 ? (
                                   <>
                                     <span>{parts[0].trim()}</span>
@@ -1297,27 +1533,143 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
                                     <span>{parts[1].trim()}</span>
                                   </>
                                 ) : (
-                                  ln
+                                  couplet
                                 )}
                               </p>
                             );
                           })}
                         </div>
                       </div>
-                      <div className="mt-4 pt-2 border-t border-ink/10 text-xs opacity-60 flex justify-between">
-                        <span>{res.era || "العصر الذهبي"}</span>
-                        <span>مستودع ديوان العرب</span>
+
+                      <div className="mt-4 pt-3 border-t border-ink/10 flex items-center justify-between gap-2">
+                        <span className="text-[11px] opacity-60">{poem.era}</span>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleCopyPoem(poem.couplets.join("\n"), poem.title)}
+                            className="text-xs px-2 py-1 border border-ink/20 rounded hover:border-ember transition"
+                            title="نسخ الأبيات"
+                          >
+                            نسخ
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setActiveCloudPoemModal(poem)}
+                            className="text-xs px-2.5 py-1 bg-ember text-paper font-semibold rounded hover:bg-ember/90 transition"
+                          >
+                            عرض كامل ({poem.totalVerses} شطر)
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                !archiveSearching && (
-                  <p className="text-center italic opacity-75 py-8 text-base">
-                    لم يتم العثور على نتائج تطابق &ldquo;{archiveQuery}&rdquo;. جرب اسم شاعر آخر أو بحراً شعرياً مختلفاً.
-                  </p>
-                )
+                <div className="py-12 text-center">
+                  <p className="italic text-ink/70">انقر على زر استعراض السحابة للبدء في تصفح الـ 254 ألف قصيدة.</p>
+                  <button
+                    type="button"
+                    onClick={() => loadCloudPage(0, cloudMeter)}
+                    className="mt-3 dbtn font-bold px-6 py-2"
+                  >
+                    تحميل القصائد الآن
+                  </button>
+                </div>
               )}
+            </div>
+          )}
+
+          {/* FULL POEM MODAL VIEWER */}
+          {activeCloudPoemModal && (
+            <div
+              role="dialog"
+              aria-modal="true"
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/70 backdrop-blur-sm"
+              onClick={() => setActiveCloudPoemModal(null)}
+            >
+              <div
+                className="relative bg-paper border-2 border-gilt max-w-2xl w-full max-h-[85vh] flex flex-col rounded-sm shadow-2xl p-6 overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Header */}
+                <div className="flex items-start justify-between border-b border-ink/15 pb-4 mb-4">
+                  <div>
+                    <span className="sc text-xs text-ember font-bold uppercase tracking-wider">
+                      بحر {activeCloudPoemModal.meter} &bull; {activeCloudPoemModal.era}
+                    </span>
+                    <h3 className="disp text-2xl font-bold text-ink mt-1">
+                      {activeCloudPoemModal.title}
+                    </h3>
+                    <p className="sc text-base text-ember font-medium mt-0.5">
+                      {activeCloudPoemModal.poet}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveCloudPoemModal(null)}
+                    className="text-ink/60 hover:text-ink text-2xl font-bold leading-none p-1"
+                    aria-label="إغلاق"
+                  >
+                    &times;
+                  </button>
+                </div>
+
+                {/* Poet Bio snippet if available */}
+                {activeCloudPoemModal.poetBio && (
+                  <p className="text-xs italic bg-amber-950/5 p-3 rounded border border-ink/10 mb-4 text-ink/80 leading-relaxed" dir="rtl">
+                    {activeCloudPoemModal.poetBio}
+                  </p>
+                )}
+
+                {/* Scrollable Verses */}
+                <div className="overflow-y-auto flex-1 space-y-3 pr-2 text-right" dir="rtl">
+                  {activeCloudPoemModal.couplets.map((couplet, idx) => {
+                    const parts = couplet.split("||");
+                    return (
+                      <div
+                        key={idx}
+                        className="py-1.5 border-b border-ink/5 last:border-b-0 text-sm sm:text-base leading-relaxed hover:bg-amber-950/5 px-2 rounded transition"
+                      >
+                        <span className="text-xs text-ember/60 ml-2 select-none font-mono">
+                          [{idx + 1}]
+                        </span>
+                        {parts.length === 2 ? (
+                          <>
+                            <span className="font-medium">{parts[0].trim()}</span>
+                            <span className="text-ember mx-2">&#10059;</span>
+                            <span className="font-medium">{parts[1].trim()}</span>
+                          </>
+                        ) : (
+                          <span>{couplet}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Footer Actions */}
+                <div className="flex items-center justify-between border-t border-ink/15 pt-4 mt-4 text-xs">
+                  <span className="opacity-70">
+                    مستنسخ في مستودع: <strong>fuaf24/arabic-poetry-ashaar</strong>
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleCopyPoem(activeCloudPoemModal.couplets.join("\n"), activeCloudPoemModal.title)}
+                      className="dbtn text-xs py-1.5 px-4"
+                    >
+                      {copied ? "تم النسخ ✓" : "نسخ القصيدة كاملة"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveCloudPoemModal(null)}
+                      className="px-4 py-1.5 border border-ink/30 rounded text-ink hover:border-ink transition"
+                    >
+                      إغلاق
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </section>
