@@ -2,6 +2,7 @@ export type MuseumSource =
   | "Art Institute of Chicago"
   | "Rijksmuseum"
   | "The Metropolitan Museum of Art"
+  | "Europeana & National Galleries"
   | "Europeana / WikiArt";
 
 export interface Artwork {
