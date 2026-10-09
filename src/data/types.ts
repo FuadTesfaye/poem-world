@@ -32,6 +32,9 @@ export interface Poem {
   tags: string[];
   plate: string;
   about: string;
+  aboutAr?: string;
   text: string;
+  translation?: string;
+  translator?: string;
   source?: string;
 }

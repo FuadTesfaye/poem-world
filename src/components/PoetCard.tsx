@@ -24,8 +24,27 @@ export default function PoetCard({ poet }: PoetCardProps) {
             }}
           />
         </div>
-        <h3 className="disp mt-5 text-[1.7rem] leading-tight text-ink">{poet.name}</h3>
-        {poet.ar && <p className="ar text-xl text-ember font-medium mt-0.5">{poet.ar}</p>}
+        {poet.language === "ar" ? (
+          <>
+            <h3 className="ar mt-4 text-[1.85rem] leading-snug text-ink font-medium" dir="rtl">
+              <bdi>{poet.ar || poet.name}</bdi>
+            </h3>
+            <p className="sc mt-0.5 text-sm text-ember font-normal" dir="ltr">
+              <bdi>{poet.name}</bdi>
+            </p>
+          </>
+        ) : (
+          <>
+            <h3 className="disp mt-4 text-[1.7rem] leading-tight text-ink font-normal" dir="ltr">
+              <bdi>{poet.name}</bdi>
+            </h3>
+            {poet.ar && (
+              <p className="ar text-lg text-ember font-medium mt-0.5" dir="rtl">
+                <bdi>{poet.ar}</bdi>
+              </p>
+            )}
+          </>
+        )}
         <p className="sc mt-1 text-sm opacity-80">
           {poet.years} &nbsp;&middot;&nbsp; {poet.era}
         </p>

@@ -30,13 +30,13 @@ export default function ArtCard({ artwork }: ArtCardProps) {
             <span className="opacity-75">{artwork.date}</span>
           </div>
 
-          <h3 className="disp text-2xl leading-snug text-ink group-hover:text-ember transition">
-            {artwork.title}
+          <h3 className="disp text-2xl leading-snug text-ink group-hover:text-ember transition" dir="ltr">
+            <bdi>{artwork.title}</bdi>
           </h3>
 
           {artwork.titleAr && (
-            <p className="ar text-lg text-ink/80 font-normal leading-relaxed">
-              {artwork.titleAr}
+            <p className="ar text-lg text-ink/80 font-normal leading-relaxed" dir="rtl">
+              <bdi>{artwork.titleAr}</bdi>
             </p>
           )}
 

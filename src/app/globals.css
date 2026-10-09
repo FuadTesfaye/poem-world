@@ -254,6 +254,23 @@ a {
   font-family: Amiri, serif;
 }
 
+/* BiDi Text Direction Protection & Unicode Isolation */
+[dir="rtl"] {
+  direction: rtl;
+  text-align: right;
+  unicode-bidi: isolate;
+}
+
+[dir="ltr"] {
+  direction: ltr;
+  text-align: left;
+  unicode-bidi: isolate;
+}
+
+bdi {
+  unicode-bidi: isolate;
+}
+
 .i1 { background-image: url("/images/poet-i1.jpg"); }
 .i2 { background-image: url("/images/poet-i2.jpg"); }
 .i3 { background-image: url("/images/poet-i3.jpg"); }
