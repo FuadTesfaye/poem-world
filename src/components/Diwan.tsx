@@ -20,6 +20,19 @@ import {
   FuadCorpusPoemResult,
   FuadCorpusPage,
 } from "@/data/search/arabicOfflineEngine";
+import {
+  SearchIcon,
+  BookIcon,
+  ScrollIcon,
+  UsersIcon,
+  GlobeIcon,
+  SparkIcon,
+  CheckIcon,
+  CloseIcon,
+  CopyIcon,
+  ExternalLinkIcon,
+  DatasetIcon,
+} from "./Icons";
 
 interface DiwanProps {
   routeParts: string[];
@@ -64,6 +77,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
   const [copied, setCopied] = useState<boolean>(false);
   const [copyFeedback, setCopyFeedback] = useState<string>("");
   const [visibleCount, setVisibleCount] = useState<number>(12);
+  const [visiblePoetsCount, setVisiblePoetsCount] = useState<number>(16);
   const [readingMode, setReadingMode] = useState<"original" | "parallel" | "stanza" | "translation">("parallel");
 
   // Dual-Tier Arabic Archive Engine State
@@ -209,7 +223,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
       const clean = text.replace(/\|\|/g, " — ");
       navigator.clipboard.writeText(clean);
       setCopied(true);
-      setCopyFeedback(`Copied ${label} ✓`);
+      setCopyFeedback(`Copied ${label}`);
       setTimeout(() => {
         setCopied(false);
         setCopyFeedback("");
@@ -217,23 +231,20 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
     }
   }
 
-  // In-Repo Offline Archive Search (Zero External API Calls)
-  async function searchLiveArchive(e: React.FormEvent) {
-    e.preventDefault();
-    const query = archiveQuery.trim();
-
+  // Instant In-Repo Archive Search (Zero Latency & Zero External API Calls)
+  async function runInstantArchiveSearch(query: string, meter: string = archiveMeter) {
+    const q = query.trim();
     setArchiveSearching(true);
     setArchiveSearched(true);
-    setArchiveResults([]);
 
     const results: ExternalResult[] = [];
-    const isArabicQuery = /[\u0600-\u06FF]/.test(query) || selectedLanguage === "ar";
+    const isArabicQuery = /[\u0600-\u06FF]/.test(q) || selectedLanguage === "ar";
 
     try {
-      if (isArabicQuery || !query) {
+      if (isArabicQuery || !q) {
         // Query local in-repo static archive index with zero external network API calls
-        const offlineItems = await searchInRepoArabicArchive(query, archiveMeter, "all");
-        for (const item of offlineItems.slice(0, 18)) {
+        const offlineItems = await searchInRepoArabicArchive(q, meter, "all");
+        for (const item of offlineItems.slice(0, 24)) {
           results.push({
             title: item.title,
             poet: item.poet,
@@ -245,14 +256,14 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
         }
       } else {
         // Local search within bundled English poems
-        const qLower = query.toLowerCase();
+        const qLower = q.toLowerCase();
         const matched = POEMS.filter(
           (p) =>
             p.language === "en" &&
             (p.title.toLowerCase().includes(qLower) ||
              p.poet.toLowerCase().includes(qLower) ||
              p.text.toLowerCase().includes(qLower))
-        ).slice(0, 12);
+        ).slice(0, 16);
 
         for (const p of matched) {
           results.push({
@@ -265,12 +276,17 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
           });
         }
       }
+      setArchiveResults(results);
     } catch (err) {
       console.error("Local archive search error:", err);
     } finally {
-      setArchiveResults(results);
       setArchiveSearching(false);
     }
+  }
+
+  async function searchLiveArchive(e: React.FormEvent) {
+    e.preventDefault();
+    runInstantArchiveSearch(archiveQuery, archiveMeter);
   }
 
   function renderFrameFor(p: Poem) {
@@ -884,6 +900,9 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
 
   // 3. Poets Catalog Route: #/poets
   function renderPoetsListView() {
+    const arabicPoetsCount = POETS.filter((p) => p.language === "ar").length;
+    const englishPoetsCount = POETS.filter((p) => p.language === "en").length;
+
     return (
       <section className="px-[4vw] pt-8">
         <div className="text-center max-w-2xl mx-auto">
@@ -902,14 +921,38 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
             <label className="sc block text-center text-xs" htmlFor="poet-q">
               Search poet by name, era, or birthplace
             </label>
-            <input
-              id="poet-q"
-              type="search"
-              value={poetSearchQuery}
-              onChange={(e) => setPoetSearchQuery(e.target.value)}
-              className="mt-1 w-full border border-ink/60 bg-transparent px-4 py-2 text-center italic outline-none focus:border-ember"
-              placeholder="Mutanabbi, Shakespeare, Keats, Darwish, Antarah..."
-            />
+            <div className="relative mt-1">
+              <input
+                id="poet-q"
+                type="search"
+                value={poetSearchQuery}
+                onChange={(e) => {
+                  setPoetSearchQuery(e.target.value);
+                  setVisiblePoetsCount(16);
+                }}
+                className="w-full border border-ink/60 bg-transparent pl-10 pr-10 py-2.5 text-center italic outline-none focus:border-ember"
+                placeholder="Mutanabbi, Shakespeare, Keats, Darwish, Antarah..."
+              />
+              <SearchIcon className="absolute left-3.5 top-3 w-4 h-4 text-ink/50 pointer-events-none" />
+              {poetSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPoetSearchQuery("");
+                    setVisiblePoetsCount(16);
+                  }}
+                  className="absolute right-3 top-2.5 text-ink/60 hover:text-ember p-0.5"
+                  title="Clear search"
+                >
+                  <CloseIcon className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            {poetSearchQuery && (
+              <p className="mt-2 text-center text-xs sc text-ember">
+                Found {filteredPoets.length} matching masters
+              </p>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-2">
@@ -919,6 +962,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
               onClick={() => {
                 setSelectedLanguage("all");
                 setSelectedEra("all");
+                setVisiblePoetsCount(16);
               }}
             >
               All Traditions ({POETS.length})
@@ -929,9 +973,10 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
               onClick={() => {
                 setSelectedLanguage("ar");
                 setSelectedEra("all");
+                setVisiblePoetsCount(16);
               }}
             >
-              العربية (Arabic Canon - 28)
+              العربية (Arabic Canon &bull; {arabicPoetsCount})
             </button>
             <button
               className="dbtn"
@@ -939,9 +984,10 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
               onClick={() => {
                 setSelectedLanguage("en");
                 setSelectedEra("all");
+                setVisiblePoetsCount(16);
               }}
             >
-              English Canon (35 Masters)
+              English Canon &bull; {englishPoetsCount} Masters
             </button>
             <a href="#/art" className="dbtn text-ember font-medium">
               Art Gallery &rarr;
@@ -959,7 +1005,10 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
                       ? "bg-ember text-paper border-ember"
                       : "border-ink/30 hover:border-ember/70 text-ink"
                   }`}
-                  onClick={() => setSelectedEra(era.id)}
+                  onClick={() => {
+                    setSelectedEra(era.id);
+                    setVisiblePoetsCount(16);
+                  }}
                 >
                   {era.label}
                 </button>
@@ -977,7 +1026,10 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
                       ? "bg-ember text-paper border-ember"
                       : "border-ink/30 hover:border-ember/70 text-ink"
                   }`}
-                  onClick={() => setSelectedEra(era.id)}
+                  onClick={() => {
+                    setSelectedEra(era.id);
+                    setVisiblePoetsCount(16);
+                  }}
                 >
                   {era.label}
                 </button>
@@ -986,15 +1038,33 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
           )}
         </div>
 
-        <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-12 grid gap-8 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
           {filteredPoets.length > 0 ? (
-            filteredPoets.map((poet) => <PoetCard key={poet.slug} poet={poet} />)
+            filteredPoets.slice(0, visiblePoetsCount).map((poet) => (
+              <PoetCard key={poet.slug} poet={poet} />
+            ))
           ) : (
             <p className="col-span-full text-center italic py-8">
               No poets match your search query. Try another term.
             </p>
           )}
         </div>
+
+        {/* Poets Load More / Pagination Button */}
+        {visiblePoetsCount < filteredPoets.length && (
+          <div className="mt-12 text-center flex flex-col items-center gap-3">
+            <button
+              type="button"
+              className="dbtn font-bold px-8 py-3 text-xs tracking-wider uppercase transition shadow-sm hover:shadow"
+              onClick={() => setVisiblePoetsCount((prev) => prev + 16)}
+            >
+              Load More Masters ({filteredPoets.length - visiblePoetsCount} remaining)
+            </button>
+            <p className="text-xs sc text-ink/70">
+              Displaying {Math.min(visiblePoetsCount, filteredPoets.length)} of {filteredPoets.length} poets
+            </p>
+          </div>
+        )}
       </section>
     );
   }
@@ -1011,10 +1081,10 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
             <em>Diwan</em> is the Arabic word for a collected book of poems, and also for a hall where people gather to listen. This sanctuary unites the greatest voices of human longing across classical Arabic, the pre-Islamic Golden Mu‘allaqat, the courts of Damascus, Baghdad and Cordoba, and the English Renaissance and Romantic traditions.
           </p>
           <p>
-            Enriched with references to <strong>Qafiyah</strong>, <strong>ArPoT</strong>, <strong>Aldiwan</strong>, <strong>Ashaar</strong>, <strong>LearningMetersPoems</strong>, and <strong>PoetryDB</strong>, every verse is set within illuminated borders honoring antique manuscript art.
+            Enriched with references to classical prosody, every verse is set within illuminated borders honoring antique manuscript art, alongside scholarly bilingual translations and metrical scansion according to the 16 classical meters of Al-Khalil ibn Ahmad.
           </p>
           <p>
-            Engineered with Next.js and Bun, deploying multi-service backends for Arabic meter and poetry classification via ALBERT and GPT-2 models.
+            An open, comprehensive cultural repository preserved for scholars, readers, and lovers of verse worldwide.
           </p>
         </div>
         <div className="mt-8">
@@ -1214,14 +1284,38 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
             <label className="sc block text-center text-xs" htmlFor="q">
               Search poem by title, verse, or meter
             </label>
-            <input
-              id="q"
-              type="search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="mt-1 w-full border border-ink/60 bg-transparent px-4 py-2 text-center italic outline-none focus:border-ember"
-              placeholder="Qifa Nabki, Raven, Tawil, Basit, Darwish..."
-            />
+            <div className="relative mt-1">
+              <input
+                id="q"
+                type="search"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setVisibleCount(12);
+                }}
+                className="w-full border border-ink/60 bg-transparent pl-10 pr-10 py-2.5 text-center italic outline-none focus:border-ember"
+                placeholder="Qifa Nabki, Raven, Tawil, Basit, Darwish..."
+              />
+              <SearchIcon className="absolute left-3.5 top-3 w-4 h-4 text-ink/50 pointer-events-none" />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setVisibleCount(12);
+                  }}
+                  className="absolute right-3 top-2.5 text-ink/60 hover:text-ember p-0.5"
+                  title="Clear search"
+                >
+                  <CloseIcon className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            {searchQuery && (
+              <p className="mt-2 text-center text-xs sc text-ember">
+                Found {filteredPoems.length} matching poems
+              </p>
+            )}
           </div>
 
           {/* Poems grid */}
@@ -1238,7 +1332,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
           {visibleCount < filteredPoems.length && (
             <div className="mt-12 text-center">
               <button
-                className="dbtn"
+                className="dbtn font-bold px-8 py-3 text-xs tracking-wider uppercase transition shadow-sm hover:shadow"
                 onClick={() => setVisibleCount((prev) => prev + 12)}
               >
                 Load More Masterpieces ({filteredPoems.length - visibleCount} remaining)
@@ -1259,22 +1353,27 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
 
             {/* Scale & Cloned HF Repository Banner */}
             <div className="mt-4 flex flex-wrap justify-center items-center gap-3 text-xs">
-              <span className="bg-amber-950/10 px-3 py-1 rounded-full font-semibold border border-amber-950/20">
-                📚 <strong>254,630</strong> قصيدة
+              <span className="bg-amber-950/10 px-3 py-1.5 rounded-full font-semibold border border-amber-950/20 inline-flex items-center gap-1.5">
+                <BookIcon className="w-3.5 h-3.5 text-ember" />
+                <span><strong>254,630</strong> قصيدة</span>
               </span>
-              <span className="bg-amber-950/10 px-3 py-1 rounded-full font-semibold border border-amber-950/20">
-                📜 <strong>3,857,429</strong> بيت شعري
+              <span className="bg-amber-950/10 px-3 py-1.5 rounded-full font-semibold border border-amber-950/20 inline-flex items-center gap-1.5">
+                <ScrollIcon className="w-3.5 h-3.5 text-ember" />
+                <span><strong>3,857,429</strong> بيت شعري</span>
               </span>
-              <span className="bg-amber-950/10 px-3 py-1 rounded-full font-semibold border border-amber-950/20">
-                👥 <strong>7,167</strong> شاعر عربي
+              <span className="bg-amber-950/10 px-3 py-1.5 rounded-full font-semibold border border-amber-950/20 inline-flex items-center gap-1.5">
+                <UsersIcon className="w-3.5 h-3.5 text-ember" />
+                <span><strong>7,167</strong> شاعر عربي</span>
               </span>
               <a
                 href="https://huggingface.co/datasets/fuaf24/arabic-poetry-ashaar"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="bg-ember/15 text-ember hover:bg-ember hover:text-paper transition px-3 py-1 rounded-full font-bold border border-ember/30"
+                className="bg-ember/15 text-ember hover:bg-ember hover:text-paper transition px-3.5 py-1.5 rounded-full font-bold border border-ember/30 inline-flex items-center gap-1.5"
               >
-                🤗 مستنسخ في fuaf24/arabic-poetry-ashaar &rarr;
+                <DatasetIcon className="w-3.5 h-3.5" />
+                <span>fuaf24/arabic-poetry-ashaar</span>
+                <ExternalLinkIcon className="w-3 h-3 opacity-80" />
               </a>
             </div>
 
@@ -1289,7 +1388,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
                     : "border-ink/20 hover:border-ember text-ink/80 hover:text-ink"
                 }`}
               >
-                <span>⚡</span>
+                <SparkIcon className="w-4 h-4 text-ember" />
                 <span>المستودع الفوري المحلي (In-Repo Core &bull; 0ms)</span>
               </button>
               <button
@@ -1301,8 +1400,8 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
                     : "border-ember/30 text-ember hover:bg-ember/10"
                 }`}
               >
-                <span>🌐</span>
-                <span>سحابة ديوان فؤاد (Fuad&apos;s 3.85M Corpus &bull; 254K قصيدة)</span>
+                <GlobeIcon className="w-4 h-4" />
+                <span>خزانة ديوان فؤاد (Fuad&apos;s 3.85M Corpus &bull; 254K)</span>
               </button>
             </div>
           </div>
@@ -1329,7 +1428,10 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
                 ].map((m) => (
                   <button
                     key={m.id}
-                    onClick={() => setArchiveMeter(m.id)}
+                    onClick={() => {
+                      setArchiveMeter(m.id);
+                      runInstantArchiveSearch(archiveQuery, m.id);
+                    }}
                     className={`sc px-2.5 py-1 rounded-sm border transition text-xs ${
                       archiveMeter === m.id
                         ? "bg-ember text-paper border-ember font-bold shadow-sm"
@@ -1342,15 +1444,35 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
               </div>
 
               <form onSubmit={searchLiveArchive} className="mt-6 flex flex-wrap gap-2 justify-center">
-                <input
-                  type="search"
-                  value={archiveQuery}
-                  onChange={(e) => setArchiveQuery(e.target.value)}
-                  placeholder="ابحث في المستودع المحلي (مثال: المتنبي، قفا نبك، سقط الزند، دمشق، ليلى...)"
-                  className="w-full max-w-lg border-2 border-ember/60 bg-paper/80 px-4 py-2.5 text-center italic text-ink outline-none focus:border-ember focus:bg-paper"
-                />
+                <div className="relative w-full max-w-lg">
+                  <input
+                    type="search"
+                    value={archiveQuery}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setArchiveQuery(val);
+                      runInstantArchiveSearch(val, archiveMeter);
+                    }}
+                    placeholder="ابحث فورياً بالاسم، الشطر، أو العصر (المتنبي، قفا نبك، دمشق...)"
+                    className="w-full border-2 border-ember/60 bg-paper/80 pl-10 pr-10 py-2.5 text-center italic text-ink outline-none focus:border-ember focus:bg-paper"
+                  />
+                  <SearchIcon className="absolute left-3.5 top-3.5 w-4 h-4 text-ink/50 pointer-events-none" />
+                  {archiveQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setArchiveQuery("");
+                        runInstantArchiveSearch("", archiveMeter);
+                      }}
+                      className="absolute right-3.5 top-3 text-ink/60 hover:text-ember p-0.5"
+                      title="مسح"
+                    >
+                      <CloseIcon className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
                 <button type="submit" className="dbtn font-bold px-6 py-2.5" disabled={archiveSearching}>
-                  {archiveSearching ? "جاري البحث في المستودع..." : "بحث فوري في المستودع"}
+                  {archiveSearching ? "جاري البحث..." : "بحث فوري"}
                 </button>
               </form>
 
@@ -1421,9 +1543,10 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
                 <button
                   type="button"
                   onClick={handleSwitchToCloud}
-                  className="mt-3 dbtn font-bold px-5 py-2 text-xs uppercase"
+                  className="mt-3 dbtn font-bold px-5 py-2.5 text-xs uppercase inline-flex items-center gap-2"
                 >
-                  🌐 فتح متصفح سحابة ديوان فؤاد (3.85M بيت) &rarr;
+                  <GlobeIcon className="w-4 h-4" />
+                  <span>فتح متصفح سحابة ديوان فؤاد (3.85M بيت) &rarr;</span>
                 </button>
               </div>
             </div>
@@ -1547,10 +1670,11 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
                           <button
                             type="button"
                             onClick={() => handleCopyPoem(poem.couplets.join("\n"), poem.title)}
-                            className="text-xs px-2 py-1 border border-ink/20 rounded hover:border-ember transition"
+                            className="text-xs px-2.5 py-1 border border-ink/20 rounded hover:border-ember transition inline-flex items-center gap-1"
                             title="نسخ الأبيات"
                           >
-                            نسخ
+                            <CopyIcon className="w-3 h-3 text-ink/70" />
+                            <span>نسخ</span>
                           </button>
                           <button
                             type="button"
@@ -1607,10 +1731,10 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
                   <button
                     type="button"
                     onClick={() => setActiveCloudPoemModal(null)}
-                    className="text-ink/60 hover:text-ink text-2xl font-bold leading-none p-1"
+                    className="text-ink/60 hover:text-ink p-1 rounded hover:bg-amber-950/10 transition"
                     aria-label="إغلاق"
                   >
-                    &times;
+                    <CloseIcon className="w-5 h-5" />
                   </button>
                 </div>
 
@@ -1650,15 +1774,25 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
                 {/* Footer Actions */}
                 <div className="flex items-center justify-between border-t border-ink/15 pt-4 mt-4 text-xs">
                   <span className="opacity-70">
-                    مستنسخ في مستودع: <strong>fuaf24/arabic-poetry-ashaar</strong>
+                    مستودع: <strong>fuaf24/arabic-poetry-ashaar</strong>
                   </span>
                   <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={() => handleCopyPoem(activeCloudPoemModal.couplets.join("\n"), activeCloudPoemModal.title)}
-                      className="dbtn text-xs py-1.5 px-4"
+                      className="dbtn text-xs py-1.5 px-4 inline-flex items-center gap-1.5"
                     >
-                      {copied ? "تم النسخ ✓" : "نسخ القصيدة كاملة"}
+                      {copied ? (
+                        <>
+                          <CheckIcon className="w-3.5 h-3.5" />
+                          <span>تم النسخ</span>
+                        </>
+                      ) : (
+                        <>
+                          <CopyIcon className="w-3.5 h-3.5" />
+                          <span>نسخ القصيدة كاملة</span>
+                        </>
+                      )}
                     </button>
                     <button
                       type="button"

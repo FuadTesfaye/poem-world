@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { POEMS, POETS, stripTags } from "@/data/diwan";
 import { ARTWORKS } from "@/data/art";
+import { SearchIcon, CloseIcon, MenuIcon, SparkIcon } from "./Icons";
 
 interface GlobalNavProps {
   currentRoute?: string;
@@ -223,7 +224,7 @@ export default function GlobalNav({ currentRoute = "landing", routeParts = [] }:
               className="flex items-center gap-2 rounded-sm border border-ink/30 bg-amber-950/5 px-3 py-1.5 text-xs text-ink/85 transition hover:border-ember hover:bg-amber-950/10 hover:text-ember focus:outline-none"
               title="Search across all poems, poets, and artworks (Press / or Ctrl+K)"
             >
-              <span className="text-sm">🔍</span>
+              <SearchIcon className="w-3.5 h-3.5 text-ink/70" />
               <span className="hidden sm:inline font-serif italic">Search Gallery &amp; Diwan...</span>
               <kbd className="hidden md:inline-block rounded border border-ink/30 px-1.5 py-0.2 text-[10px] font-mono text-ink/60">
                 /
@@ -236,7 +237,7 @@ export default function GlobalNav({ currentRoute = "landing", routeParts = [] }:
               className="hidden sm:flex items-center gap-1.5 rounded-sm border border-gilt/70 bg-gradient-to-r from-amber-900/10 to-amber-950/15 px-3 py-1.5 text-xs font-semibold text-ember transition hover:border-ember hover:bg-ember hover:text-paper shadow-sm"
               title="Discover a random masterpiece poem or painting"
             >
-              <span className="text-sm">&#127922;</span>
+              <SparkIcon className="w-3.5 h-3.5 text-ember" />
               <span className="sc tracking-wide">Surprise Me</span>
             </button>
 
@@ -246,7 +247,7 @@ export default function GlobalNav({ currentRoute = "landing", routeParts = [] }:
               className="lg:hidden flex h-10 w-10 items-center justify-center rounded-sm border border-ink/30 text-ink hover:text-ember focus:outline-none"
               aria-label="Toggle Navigation Menu"
             >
-              <span className="text-2xl leading-none">{mobileMenuOpen ? "✕" : "☰"}</span>
+              {mobileMenuOpen ? <CloseIcon className="w-5 h-5" /> : <MenuIcon className="w-5 h-5" />}
             </button>
           </div>
         </div>
@@ -314,13 +315,15 @@ export default function GlobalNav({ currentRoute = "landing", routeParts = [] }:
                   }}
                   className="flex-1 dbtn text-xs py-2.5 text-center justify-center flex items-center gap-1.5"
                 >
-                  <span>🔍</span> Search All
+                  <SearchIcon className="w-3.5 h-3.5" />
+                  <span>Search All</span>
                 </button>
                 <button
                   onClick={handleRandomDiscover}
                   className="flex-1 dbtn text-xs py-2.5 text-center justify-center flex items-center gap-1.5 border-ember text-ember"
                 >
-                  <span>&#127922;</span> Surprise Me
+                  <SparkIcon className="w-3.5 h-3.5" />
+                  <span>Surprise Me</span>
                 </button>
               </div>
             </div>
@@ -355,10 +358,10 @@ export default function GlobalNav({ currentRoute = "landing", routeParts = [] }:
               </div>
               <button
                 onClick={() => setSearchModalOpen(false)}
-                className="flex h-9 w-9 items-center justify-center rounded-sm border border-ink/30 text-ink hover:border-ember hover:text-ember"
+                className="flex h-9 w-9 items-center justify-center rounded-sm border border-ink/30 text-ink hover:border-ember hover:text-ember transition"
                 aria-label="Close search"
               >
-                ✕
+                <CloseIcon className="w-5 h-5" />
               </button>
             </div>
 
@@ -370,15 +373,16 @@ export default function GlobalNav({ currentRoute = "landing", routeParts = [] }:
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search Monet, Shakespeare, المتنبي, Sonnet, Landscape, Romanticism..."
-                className="w-full border-2 border-ember/70 bg-paper/60 px-12 py-3.5 text-lg italic text-ink outline-none focus:border-ember focus:bg-paper"
+                className="w-full border-2 border-ember/70 bg-paper/60 pl-12 pr-12 py-3.5 text-lg italic text-ink outline-none focus:border-ember focus:bg-paper"
               />
-              <span className="absolute left-4 top-4 text-xl opacity-60">🔍</span>
+              <SearchIcon className="absolute left-4 top-4.5 w-5 h-5 text-ink/60 pointer-events-none" />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-4 top-3.5 text-sm text-ink/70 hover:text-ember px-2 py-1"
+                  className="absolute right-4 top-3.5 text-sm text-ink/70 hover:text-ember px-2 py-1 inline-flex items-center gap-1"
                 >
-                  ✕ Clear
+                  <CloseIcon className="w-4 h-4" />
+                  <span>Clear</span>
                 </button>
               )}
             </div>

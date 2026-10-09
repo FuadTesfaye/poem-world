@@ -4,6 +4,14 @@ import React, { useState, useMemo, useEffect } from "react";
 import { ARTWORKS, getArtwork, Artwork } from "@/data/art";
 import { getPoem, stripTags } from "@/data/diwan";
 import ArtCard from "./ArtCard";
+import {
+  SearchIcon,
+  CloseIcon,
+  CopyIcon,
+  CheckIcon,
+  MuseumIcon,
+  GalleryIcon,
+} from "./Icons";
 
 interface ArtGalleryProps {
   routeParts: string[];
@@ -313,7 +321,8 @@ export default function ArtGallery({ routeParts }: ArtGalleryProps) {
 
                 {/* Hover zoom prompt */}
                 <div className="absolute bottom-3 right-3 rounded bg-black/70 backdrop-blur-sm px-3 py-1 text-xs text-paper flex items-center gap-1.5 shadow">
-                  <span>🔍</span> Click for High-Res Lightbox
+                  <SearchIcon className="w-3.5 h-3.5" />
+                  <span>Click for High-Res Lightbox</span>
                 </div>
               </div>
             </div>
@@ -323,17 +332,28 @@ export default function ArtGallery({ routeParts }: ArtGalleryProps) {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setLightboxArtwork(artwork)}
-                  className="dbtn text-xs py-1 px-3 flex items-center gap-1"
+                  className="dbtn text-xs py-1 px-3 inline-flex items-center gap-1.5"
                 >
-                  <span>🔍</span> Inspect Fullscreen
+                  <SearchIcon className="w-3.5 h-3.5" />
+                  <span>Inspect Fullscreen</span>
                 </button>
 
                 <button
                   onClick={() => handleCopyCitation(artwork)}
-                  className="dbtn text-xs py-1 px-3"
+                  className="dbtn text-xs py-1 px-3 inline-flex items-center gap-1.5"
                   title="Copy scholarly reference citation"
                 >
-                  {copiedCitation ? "✓ Citation Copied!" : "📋 Copy Citation"}
+                  {copiedCitation ? (
+                    <>
+                      <CheckIcon className="w-3.5 h-3.5" />
+                      <span>Citation Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <CopyIcon className="w-3.5 h-3.5" />
+                      <span>Copy Citation</span>
+                    </>
+                  )}
                 </button>
               </div>
 
@@ -635,7 +655,8 @@ export default function ArtGallery({ routeParts }: ArtGalleryProps) {
                 }`}
                 title="Expansive wide cards with large artworks and readable curatorial stories"
               >
-                <span>🖼️</span> Curatorial Showcase (Wide)
+                <GalleryIcon className="w-3.5 h-3.5" />
+                <span>Curatorial Showcase</span>
               </button>
               <button
                 onClick={() => setGalleryViewMode("mosaic")}
@@ -646,7 +667,8 @@ export default function ArtGallery({ routeParts }: ArtGalleryProps) {
                 }`}
                 title="Dense mosaic grid for fast visual scanning"
               >
-                <span>🏛️</span> Museum Mosaic
+                <MuseumIcon className="w-3.5 h-3.5" />
+                <span>Museum Mosaic</span>
               </button>
             </div>
 
@@ -657,17 +679,17 @@ export default function ArtGallery({ routeParts }: ArtGalleryProps) {
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full border border-ink/60 bg-paper/60 px-10 py-2 italic outline-none focus:border-ember focus:bg-paper"
+                className="w-full border border-ink/60 bg-paper/60 pl-10 pr-10 py-2 italic outline-none focus:border-ember focus:bg-paper"
                 placeholder="Search Monet, Van Gogh, Rembrandt, Vermeer, Hokusai..."
               />
-              <span className="absolute left-3.5 top-2.5 text-sm opacity-50">🔍</span>
+              <SearchIcon className="absolute left-3.5 top-2.5 w-4 h-4 text-ink/50 pointer-events-none" />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
                   className="absolute right-3.5 top-2 text-xs text-ink/70 hover:text-ember px-1.5 py-0.5"
                   title="Clear search"
                 >
-                  ✕
+                  <CloseIcon className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
@@ -911,10 +933,10 @@ export default function ArtGallery({ routeParts }: ArtGalleryProps) {
           {/* Close button */}
           <button
             onClick={() => setLightboxArtwork(null)}
-            className="absolute -top-12 right-0 flex h-10 w-10 items-center justify-center rounded-full bg-paper/20 text-paper hover:bg-ember hover:text-white transition text-lg"
+            className="absolute -top-12 right-0 flex h-10 w-10 items-center justify-center rounded-full bg-paper/20 text-paper hover:bg-ember hover:text-white transition"
             aria-label="Close Lightbox"
           >
-            ✕
+            <CloseIcon className="w-5 h-5" />
           </button>
 
           {/* Full Canvas Artwork Display */}

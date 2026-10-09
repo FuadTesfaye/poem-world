@@ -1,5 +1,6 @@
 import React from "react";
 import { Artwork } from "@/data/art/types";
+import { SearchIcon } from "./Icons";
 
 interface ArtCardProps {
   artwork: Artwork;
@@ -75,10 +76,11 @@ export default function ArtCard({ artwork, layout = "showcase", onQuickInspect }
                 e.stopPropagation();
                 onQuickInspect(artwork);
               }}
-              className="absolute bottom-2.5 right-2.5 rounded bg-black/60 backdrop-blur-sm px-2.5 py-1 text-xs text-paper opacity-0 transition group-hover:opacity-100 hover:bg-ember hover:text-white"
+              className="absolute bottom-2.5 right-2.5 rounded bg-black/60 backdrop-blur-sm px-2.5 py-1 text-xs text-paper opacity-0 transition group-hover:opacity-100 hover:bg-ember hover:text-white inline-flex items-center gap-1.5"
               title="Expand High-Resolution Lightbox"
             >
-              🔍 Inspect High-Res
+              <SearchIcon className="w-3 h-3" />
+              <span>Inspect High-Res</span>
             </button>
           )}
 
