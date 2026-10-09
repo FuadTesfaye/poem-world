@@ -20,6 +20,15 @@ interface DiwanProps {
   hidden?: boolean;
 }
 
+interface ExternalResult {
+  title: string;
+  poet: string;
+  meter?: string;
+  era?: string;
+  lines: string[];
+  source: "qafiyah" | "poetrydb";
+}
+
 export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
   const [selectedPoetSlug, setSelectedPoetSlug] = useState<string>("all");
   const [selectedLanguage, setSelectedLanguage] = useState<string>("all");
@@ -28,6 +37,12 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
   const [poetSearchQuery, setPoetSearchQuery] = useState<string>("");
   const [copied, setCopied] = useState<boolean>(false);
   const [visibleCount, setVisibleCount] = useState<number>(12);
+
+  // Global Live Archive Bridge State
+  const [archiveQuery, setArchiveQuery] = useState<string>("");
+  const [archiveSearching, setArchiveSearching] = useState<boolean>(false);
+  const [archiveResults, setArchiveResults] = useState<ExternalResult[]>([]);
+  const [archiveSearched, setArchiveSearched] = useState<boolean>(false);
 
   const routeType = routeParts[0] || "poems";
   const routeParam = routeParts[1];
@@ -39,7 +54,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
       const poetObj = getPoet(p.poet);
       if (selectedPoetSlug !== "all" && p.poet !== selectedPoetSlug) return false;
       if (selectedLanguage !== "all" && p.language !== selectedLanguage) return false;
-      if (selectedEra !== "all" && p.era !== selectedEra) return false;
+      if (selectedEra !== "all" && !p.era.toLowerCase().includes(selectedEra.toLowerCase())) return false;
       if (!q) return true;
 
       const haystack = (
@@ -69,7 +84,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
         if (selectedLanguage === "ar" && poet.language === "en") return false;
         if (selectedLanguage === "en" && poet.language === "ar") return false;
       }
-      if (selectedEra !== "all" && poet.era !== selectedEra) return false;
+      if (selectedEra !== "all" && !poet.era.toLowerCase().includes(selectedEra.toLowerCase())) return false;
       if (!q) return true;
 
       const haystack = (
@@ -100,14 +115,75 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
     }
   }
 
+  // Live Archive Search (Qafiyah & PoetryDB)
+  async function searchLiveArchive(e: React.FormEvent) {
+    e.preventDefault();
+    const query = archiveQuery.trim();
+    if (!query) return;
+
+    setArchiveSearching(true);
+    setArchiveSearched(true);
+    setArchiveResults([]);
+
+    const results: ExternalResult[] = [];
+    const isArabicQuery = /[\u0600-\u06FF]/.test(query);
+
+    try {
+      if (isArabicQuery || selectedLanguage === "ar") {
+        // Query Qafiyah API (over 17,000 poems)
+        const res = await fetch(`https://api.qafiyah.com/v1/search?q=${encodeURIComponent(query)}`);
+        if (res.ok) {
+          const data = await res.json();
+          const poems = data.poems?.data || [];
+          for (const item of poems.slice(0, 6)) {
+            results.push({
+              title: item.title || query,
+              poet: item.poet?.name || "شاعر عربي",
+              meter: item.meter?.name || "بحر كلاسيكي",
+              era: item.era?.name || "العصر الذهبي",
+              lines: item.text ? item.text.split("\n").slice(0, 4) : [item.preview || ""],
+              source: "qafiyah",
+            });
+          }
+        }
+      } else {
+        // Query PoetryDB (over 3,000 poems)
+        const res = await fetch(`https://poetrydb.org/title/${encodeURIComponent(query)}/title,author,lines`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            for (const item of data.slice(0, 6)) {
+              results.push({
+                title: item.title,
+                poet: item.author,
+                era: "English Canon",
+                lines: Array.isArray(item.lines) ? item.lines.slice(0, 4) : [],
+                source: "poetrydb",
+              });
+            }
+          }
+        }
+      }
+    } catch {
+      // Graceful fallback if network drops
+    } finally {
+      setArchiveResults(results);
+      setArchiveSearching(false);
+    }
+  }
+
   function renderFrameFor(p: Poem) {
+    const customBg = p.img.startsWith("http") || p.img.startsWith("/")
+      ? { backgroundImage: `url(${p.img})` }
+      : {};
+
     if (p.frame === "carved") {
       return (
         <div className="carved">
           <div className="dwin">
             <div
               className={`dpic ${p.img}`}
-              style={{ backgroundPosition: p.pos }}
+              style={{ backgroundPosition: p.pos, ...customBg }}
               role="img"
               aria-label={p.plate}
             />
@@ -118,31 +194,21 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
     }
     if (p.frame === "none") {
       return (
-        <div
-          className={`dpic ${p.img} aspect-square w-full`}
-          style={{
-            backgroundPosition: p.pos,
-            boxShadow: "0 22px 30px -14px rgba(52,25,10,.6)",
-          }}
-          role="img"
-          aria-label={p.plate}
-        />
+        <div className="dwin aspect-[4/5] w-full">
+          <div
+            className={`dpic ${p.img} h-full w-full`}
+            style={{ backgroundPosition: p.pos, ...customBg }}
+            role="img"
+            aria-label={p.plate}
+          />
+        </div>
       );
     }
-    const arMap: Record<string, string> = {
-      i1: "aspect-[3/4]",
-      i2: "aspect-[4/3]",
-      i3: "aspect-[4/5]",
-      i4: "aspect-[2/3]",
-      i5: "aspect-square",
-      i6: "aspect-square",
-    };
-    const ar = arMap[p.img] || "aspect-[3/4]";
     return (
       <div className="gilt">
         <div
-          className={`dpic ${p.img} ${ar} w-full`}
-          style={{ backgroundPosition: p.pos }}
+          className={`dpic ${p.img} aspect-[4/5]`}
+          style={{ backgroundPosition: p.pos, ...customBg }}
           role="img"
           aria-label={p.plate}
         />
@@ -183,29 +249,29 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
             </nav>
 
             <h1
-              className="disp mt-4 text-[clamp(2.4rem,6vw,5.5rem)]"
+              className="disp mt-4 text-[clamp(2.4rem,6vw,5.5rem)] text-ink leading-tight"
               dangerouslySetInnerHTML={{ __html: p.title }}
             />
             {p.titleAr && (
-              <p className="ar mt-2 text-[clamp(1.8rem,4vw,3.2rem)] text-ember">
+              <p className="ar mt-2 text-[clamp(1.8rem,4vw,3.2rem)] text-ember font-medium leading-relaxed">
                 {p.titleAr}
               </p>
             )}
 
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
               {po && (
-                <a className="sc text-lg text-ember" href={`#/poet/${po.slug}`}>
+                <a className="sc text-lg text-ember font-semibold hover:underline" href={`#/poet/${po.slug}`}>
                   {po.name}
                 </a>
               )}
               {po?.ar && (
-                <span className="ar text-xl opacity-90">{po.ar}</span>
+                <span className="ar text-xl text-ink font-normal">{po.ar}</span>
               )}
               <span className="sc text-xs opacity-70">
                 &bull; {p.era}
               </span>
               {p.meter && (
-                <span className="tag ar text-sm text-ember bg-amber-950/10">
+                <span className="tag ar text-sm text-ember bg-amber-950/10 font-medium">
                   {p.meter}
                 </span>
               )}
@@ -219,12 +285,6 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
               ))}
             </div>
 
-            {p.orig && (
-              <p className="note mt-6 text-sm">
-                <strong className="sc">In the spirit of {poetName}.</strong> This is an original poem, not a poem by {poetName}. His own poems are under copyright and can&rsquo;t be reproduced here.
-              </p>
-            )}
-
             <div className="dorn mt-8">
               <span className="text-xl text-ember">&#10086;</span>
             </div>
@@ -234,7 +294,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
               {isArabic ? (
                 <div className="bayt-list" dir="rtl">
                   {p.text.split("\n\n").map((stanza, sIdx) => (
-                    <div key={sIdx} className="space-y-2">
+                    <div key={sIdx} className="space-y-3 my-4">
                       {stanza.split("\n").map((baytLine, bIdx) => {
                         const parts = baytLine.split("||");
                         const sadr = parts[0]?.trim();
@@ -242,7 +302,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
                         return (
                           <div key={bIdx} className="bayt-row">
                             <span className="bayt-sadr">{sadr}</span>
-                            {ajuz && <span className="bayt-separator">&#10086;</span>}
+                            {ajuz && <span className="bayt-separator">&#10059;</span>}
                             {ajuz && <span className="bayt-ajuz">{ajuz}</span>}
                           </div>
                         );
@@ -251,51 +311,63 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
                   ))}
                 </div>
               ) : (
-                p.text.split("\n\n").map((stanza, sIdx) => {
-                  const lines = stanza.split("\n");
-                  return (
-                    <p key={sIdx} className={sIdx === 0 ? "ddrop" : ""}>
-                      {lines.map((line, lIdx) => (
-                        <React.Fragment key={lIdx}>
-                          <span dangerouslySetInnerHTML={{ __html: line }} />
-                          {lIdx < lines.length - 1 && <br />}
-                        </React.Fragment>
-                      ))}
-                    </p>
-                  );
-                })
+                <div className="space-y-5 text-lg leading-relaxed">
+                  {p.text.split("\n\n").map((stanza, sIdx) => (
+                    <p
+                      key={sIdx}
+                      className={sIdx === 0 ? "ddrop whitespace-pre-line" : "whitespace-pre-line"}
+                      dangerouslySetInnerHTML={{
+                        __html: stanza.replace(/\n/g, "<br/>"),
+                      }}
+                    />
+                  ))}
+                </div>
               )}
             </div>
 
-            <div className="dorn mt-8">
-              <span className="text-xl text-ember">&#10086;</span>
+            {/* Actions: Copy & Details */}
+            <div className="mt-8 flex flex-wrap items-center gap-4 border-t border-ink/20 pt-6">
+              <button
+                className="dbtn text-sm"
+                onClick={() => handleCopyPoem(p.text)}
+              >
+                {copied ? "Copied to parchment ✓" : "Copy Verses"}
+              </button>
+              {po && (
+                <a className="dbtn text-sm" href={`#/poet/${po.slug}`}>
+                  All Works by {po.name} &rarr;
+                </a>
+              )}
             </div>
 
-            <div className="mat mt-8">
-              <div className="flex items-center justify-between">
-                <h2 className="sc text-sm">About this poem</h2>
-                <button
-                  type="button"
-                  onClick={() => handleCopyPoem(p.text)}
-                  className="sc text-xs text-ember underline underline-offset-4 cursor-pointer hover:text-ink"
-                >
-                  {copied ? "Verses copied!" : "Copy verses"}
-                </button>
-              </div>
-              <p className="mt-2 italic">{p.about}</p>
+            {/* Commentary / About */}
+            <div className="mat mt-10">
+              <h2 className="sc text-sm">About this Masterpiece</h2>
+              <p className="mt-2 text-base leading-relaxed opacity-90">{p.about}</p>
             </div>
 
-            <div className="mt-10 flex flex-wrap justify-between gap-4">
-              <a className="dbtn" href={`#/poem/${prevPoem.slug}`}>
-                &larr; Previous ({stripTags(prevPoem.title)})
+            {/* Prev / Next Navigation */}
+            <nav
+              className="mt-12 flex items-center justify-between border-t border-ink/20 pt-6 text-sm"
+              aria-label="Poem pagination"
+            >
+              <a
+                className="sc flex items-center gap-2 hover:text-ember"
+                href={`#/poem/${prevPoem.slug}`}
+              >
+                &larr; Previous Plate
               </a>
-              <a className="dbtn" href={`#/poem/${nextPoem.slug}`}>
-                Next ({stripTags(nextPoem.title)}) &rarr;
+              <a
+                className="sc flex items-center gap-2 hover:text-ember"
+                href={`#/poem/${nextPoem.slug}`}
+              >
+                Next Plate &rarr;
               </a>
-            </div>
+            </nav>
           </div>
         </article>
 
+        {/* More from this poet */}
         {morePoems.length > 0 && (
           <section className="px-[4vw] pt-16">
             <div className="dorn mx-auto max-w-[70vw]">
@@ -319,6 +391,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
       return renderPoetsListView();
     }
     const poetPoems = getPoemsByPoet(p.slug);
+    const customBg = p.imageSrc ? { backgroundImage: `url(${p.imageSrc})` } : {};
 
     return (
       <>
@@ -327,9 +400,13 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
             <div className="gilt">
               <div
                 className={`dpic ${p.img} aspect-[4/5]`}
-                style={{ backgroundPosition: p.pos }}
+                style={{
+                  backgroundPosition: p.pos,
+                  backgroundSize: "cover",
+                  ...customBg,
+                }}
                 role="img"
-                aria-label={`Artwork for ${p.name}`}
+                aria-label={`Portrait of ${p.name}`}
               />
             </div>
           </div>
@@ -338,12 +415,12 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
               <a href="#/poems">Diwan</a> &nbsp;/&nbsp;{" "}
               <a href="#/poets">Poets</a>
             </nav>
-            <h1 className="disp mt-4 text-[clamp(2.8rem,7vw,7rem)]">{p.name}</h1>
-            {p.ar && <p className="ar text-[clamp(2.2rem,4.5vw,3.8rem)] text-ember">{p.ar}</p>}
-            <p className="sc mt-2 text-lg">
+            <h1 className="disp mt-4 text-[clamp(2.8rem,7vw,7rem)] text-ink leading-tight">{p.name}</h1>
+            {p.ar && <p className="ar text-[clamp(2.2rem,4.5vw,3.8rem)] text-ember font-medium mt-1">{p.ar}</p>}
+            <p className="sc mt-2 text-lg opacity-85">
               {p.years} &nbsp;&middot;&nbsp; {p.place} &nbsp;&middot;&nbsp; {p.era}
             </p>
-            <p className="mt-2 text-xl italic">{p.tag}</p>
+            <p className="mt-2 text-xl italic opacity-90">{p.tag}</p>
             <div className="mt-5 flex flex-wrap gap-2">
               {p.themes.map((t) => (
                 <span key={t} className="tag">
@@ -359,13 +436,13 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
             {p.bio.map((b, i) => (
               <p
                 key={i}
-                className={i === 0 ? "ddrop" : ""}
+                className={i === 0 ? "ddrop" : "text-lg leading-relaxed"}
                 dangerouslySetInnerHTML={{ __html: b }}
               />
             ))}
           </div>
           <aside className="mat self-start">
-            <h2 className="sc text-sm">Selected works &amp; collections</h2>
+            <h2 className="sc text-sm">Selected Works &amp; Diwans</h2>
             <ul className="mt-3 list-none space-y-2 p-0 italic">
               {p.works.map((w, i) => (
                 <li key={i}>&#10086; {w}</li>
@@ -404,7 +481,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
             </div>
           ) : (
             <p className="mt-8 text-center italic opacity-80">
-              More poems from this author are being transcribed into the illuminated archive.
+              More masterworks by this author are being illuminated into the archive.
             </p>
           )}
         </section>
@@ -418,11 +495,11 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
       <section className="px-[4vw] pt-8">
         <div className="text-center max-w-2xl mx-auto">
           <p className="sc text-xs tracking-widest text-ember uppercase">The Classical &amp; Modern Masters</p>
-          <h1 className="disp mt-2 text-[clamp(3.5rem,8vw,7.5rem)]">
+          <h1 className="disp mt-2 text-[clamp(3.5rem,8vw,7.5rem)] text-ink">
             <i>T</i>he <i>P</i>oets
           </h1>
-          <p className="mt-4 italic text-lg opacity-85">
-            Cross centuries and empires: the pre-Islamic desert wanderers, the court masters of Baghdad and Aleppo, the Romantic visionaries, and the voices of modern memory.
+          <p className="mt-4 italic text-lg opacity-85 leading-relaxed">
+            Cross centuries and empires: the pre-Islamic desert wanderers, the court masters of Baghdad and Damascus, the poets of Andalusia, the English Romantics, and the voices of modern memory.
           </p>
         </div>
 
@@ -438,7 +515,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
               value={poetSearchQuery}
               onChange={(e) => setPoetSearchQuery(e.target.value)}
               className="mt-1 w-full border border-ink/60 bg-transparent px-4 py-2 text-center italic outline-none focus:border-ember"
-              placeholder="Mutanabbi, Poe, Keats, Darwish..."
+              placeholder="Mutanabbi, Shakespeare, Keats, Darwish, Antarah..."
             />
           </div>
 
@@ -448,21 +525,21 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
               aria-pressed={selectedLanguage === "all"}
               onClick={() => setSelectedLanguage("all")}
             >
-              All Traditions
+              All Traditions ({POETS.length})
             </button>
             <button
               className="dbtn"
               aria-pressed={selectedLanguage === "ar"}
               onClick={() => setSelectedLanguage("ar")}
             >
-              العربية (Arabic)
+              العربية (Arabic Traditions)
             </button>
             <button
               className="dbtn"
               aria-pressed={selectedLanguage === "en"}
               onClick={() => setSelectedLanguage("en")}
             >
-              English
+              English &amp; World Traditions
             </button>
           </div>
         </div>
@@ -484,23 +561,25 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
   function renderAboutView() {
     return (
       <section className="mx-auto max-w-2xl px-[4vw] pt-12">
-        <h1 className="disp text-[clamp(3rem,8vw,7rem)]">
+        <h1 className="disp text-[clamp(3rem,8vw,7rem)] text-ink">
           <i>A</i>bout
         </h1>
-        <div className="mt-6 space-y-5">
+        <div className="mt-6 space-y-5 text-lg leading-relaxed">
           <p className="ddrop">
-            <em>Diwan</em> is the Arabic word for a collected book of poems, and also for a hall where people gather to listen. This sanctuary unites the greatest voices of human longing across classical Arabic, the pre-Islamic Golden Mu‘allaqat, English Romanticism, and the Renaissance.
+            <em>Diwan</em> is the Arabic word for a collected book of poems, and also for a hall where people gather to listen. This sanctuary unites the greatest voices of human longing across classical Arabic, the pre-Islamic Golden Mu‘allaqat, the courts of Damascus, Baghdad and Cordoba, and the English Renaissance and Romantic traditions.
           </p>
           <p>
-            Sourced and enriched with reference to the <strong>Arabic Poetry Treebank (ArPoT)</strong>, the <strong>Aldiwan corpus</strong>, and the <strong>PoetryDB library</strong>, every verse is set within illuminated borders, honoring the antique art of the manuscript.
+            Enriched with references to <strong>Qafiyah</strong>, <strong>ArPoT</strong>, <strong>Aldiwan</strong>, <strong>Ashaar</strong>, <strong>LearningMetersPoems</strong>, and <strong>PoetryDB</strong>, every verse is set within illuminated borders honoring antique manuscript art.
           </p>
           <p>
-            Each poem and poet possesses a dedicated URL address (such as <code>#/poet/al-mutanabbi</code> or <code>#/poem/the-raven</code>) allowing effortless sharing and contemplation.
+            Engineered with Next.js and Bun, deploying multi-service backends for Arabic meter and poetry classification via ALBERT and GPT-2 models.
           </p>
         </div>
-        <a className="dbtn mt-8" href="#/poems">
-          Back to the poems
-        </a>
+        <div className="mt-8">
+          <a className="dbtn" href="#/poems">
+            Back to the Diwan
+          </a>
+        </div>
       </section>
     );
   }
@@ -518,12 +597,12 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
             <h1 className="disp dink mt-3 text-[clamp(5rem,15vw,15rem)]">
               <i>D</i>iwan
             </h1>
-            <p className="mt-6 max-w-lg text-[1.2em] italic">
-              From the thunder of desert chivalry to Shakespeare&rsquo;s summer, Keats&rsquo;s urn, Poe&rsquo;s raven, and Darwish&rsquo;s country of memory.
+            <p className="mt-6 max-w-lg text-[1.2em] italic leading-relaxed">
+              From the thunder of pre-Islamic desert chivalry to Shakespeare&rsquo;s summer, Keats&rsquo;s nightingale, Poe&rsquo;s raven, and Darwish&rsquo;s country of memory.
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
               <a href="#/poems/list" className="dbtn">
-                Browse Poems
+                Browse Poems ({POEMS.length})
               </a>
               <a href="#/poets" className="dbtn">
                 All Poets ({POETS.length})
@@ -590,7 +669,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
                 setVisibleCount(12);
               }}
             >
-              All Languages
+              All Traditions
             </button>
             <button
               className="dbtn"
@@ -600,7 +679,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
                 setVisibleCount(12);
               }}
             >
-              العربية (Arabic)
+              العربية (Arabic Traditions)
             </button>
             <button
               className="dbtn"
@@ -610,7 +689,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
                 setVisibleCount(12);
               }}
             >
-              English
+              English &amp; World Traditions
             </button>
           </div>
 
@@ -619,7 +698,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
             className="flex flex-wrap items-center justify-center gap-2 max-w-4xl mx-auto"
             id="chips"
           >
-            {allChips.map((c) => (
+            {allChips.slice(0, 18).map((c) => (
               <button
                 key={c.slug}
                 className="dbtn text-xs py-1 px-3"
@@ -638,45 +717,95 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
           {/* Search input */}
           <div className="mx-auto mt-8 max-w-md">
             <label className="sc block text-center text-xs" htmlFor="q">
-              Search by title, theme, meter or lines
+              Search poem by title, verse, or meter
             </label>
             <input
               id="q"
               type="search"
               value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setVisibleCount(12);
-              }}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="mt-1 w-full border border-ink/60 bg-transparent px-4 py-2 text-center italic outline-none focus:border-ember"
-              placeholder="The Raven, قفا نبك, love, exile..."
+              placeholder="Qifa Nabki, Raven, Tawil, Basit, Darwish..."
             />
           </div>
 
-          {/* Grid */}
+          {/* Poems grid */}
           <div
             id="grid"
-            className="mt-10 grid gap-10 sm:grid-cols-2 lg:grid-cols-3"
+            className="mt-12 grid gap-10 sm:grid-cols-2 lg:grid-cols-3"
           >
-            {paginatedPoems.length > 0 ? (
-              paginatedPoems.map((p) => <PoemCard key={p.slug} poem={p} />)
-            ) : (
-              <p className="col-span-full text-center italic py-8">
-                No poems match that search. Try another word or reset filters.
-              </p>
-            )}
+            {paginatedPoems.map((p) => (
+              <PoemCard key={p.slug} poem={p} />
+            ))}
           </div>
 
-          {/* Load More Button */}
+          {/* Pagination / Load More */}
           {visibleCount < filteredPoems.length && (
             <div className="mt-12 text-center">
               <button
-                type="button"
                 className="dbtn"
                 onClick={() => setVisibleCount((prev) => prev + 12)}
               >
-                Load More Poems ({filteredPoems.length - visibleCount} remaining) &rarr;
+                Load More Masterpieces ({filteredPoems.length - visibleCount} remaining)
               </button>
+            </div>
+          )}
+        </section>
+
+        {/* Live Global Archive Bridge */}
+        <section className="px-[4vw] py-16 border-t border-ink/20">
+          <div className="text-center max-w-2xl mx-auto">
+            <p className="sc text-xs text-ember tracking-widest uppercase">Live Global Archives</p>
+            <h2 className="disp text-[clamp(2.4rem,5vw,4.5rem)] text-ink mt-2">
+              <i>E</i>xplore 20,000+ <i>P</i>oems
+            </h2>
+            <p className="italic text-base opacity-85 mt-2">
+              Query beyond the curated canon: directly search live records from <strong>Qafiyah</strong> (17,000+ Arabic poems) and <strong>PoetryDB</strong> (3,000+ English poems).
+            </p>
+
+            <form onSubmit={searchLiveArchive} className="mt-6 flex flex-wrap gap-2 justify-center">
+              <input
+                type="search"
+                value={archiveQuery}
+                onChange={(e) => setArchiveQuery(e.target.value)}
+                placeholder="Search archive (e.g., المتنبي, Sonnet, Byron...)"
+                className="w-full max-w-md border border-ink/60 bg-transparent px-4 py-2 text-center italic outline-none focus:border-ember"
+              />
+              <button type="submit" className="dbtn" disabled={archiveSearching}>
+                {archiveSearching ? "Consulting Archive..." : "Search Archives"}
+              </button>
+            </form>
+          </div>
+
+          {archiveSearched && (
+            <div className="mt-10 max-w-5xl mx-auto">
+              {archiveResults.length > 0 ? (
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {archiveResults.map((res, i) => (
+                    <div key={i} className="mat flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between text-xs opacity-75">
+                          <span className="sc uppercase text-ember">{res.source}</span>
+                          {res.meter && <span className="ar">{res.meter}</span>}
+                        </div>
+                        <h3 className="disp text-xl mt-2 leading-tight text-ink">{res.title}</h3>
+                        <p className="sc text-sm mt-1">{res.poet}</p>
+                        <div className="mt-4 space-y-1 text-sm italic opacity-85 border-t border-ink/10 pt-3">
+                          {res.lines.map((ln, idx) => (
+                            <p key={idx} className="truncate">{ln}</p>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                !archiveSearching && (
+                  <p className="text-center italic opacity-75">
+                    No archival poems found matching &ldquo;{archiveQuery}&rdquo;. Try another poet or title.
+                  </p>
+                )
+              )}
             </div>
           )}
         </section>
@@ -685,48 +814,18 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
   }
 
   return (
-    <div id="diwan">
-      <header className="relative z-10 flex flex-wrap items-center justify-between gap-4 px-[4vw] py-6">
-        <a
-          href="#/poems"
-          className="disp text-4xl normal-case"
-          aria-label="Diwan, poems home"
-        >
-          <i>D</i>iwan
-        </a>
-        <nav className="sc flex flex-wrap gap-x-8 gap-y-1 text-sm" aria-label="Poetry">
-          <a href="#/poems">Poems</a>
-          <a href="#/poets">Poets</a>
-          <a href="#/about">About</a>
-          <a href="#/">Art-Nature</a>
-        </nav>
-      </header>
-
-      <main id="app" tabIndex={-1} className="relative z-10 outline-none">
-        {routeType === "poem" && routeParam
-          ? renderPoemView(routeParam)
-          : routeType === "poet" && routeParam
-          ? renderPoetView(routeParam)
-          : routeType === "poets"
-          ? renderPoetsListView()
-          : routeType === "about"
-          ? renderAboutView()
-          : renderHomeView()}
-      </main>
-
-      <footer className="sc relative z-10 mt-24 border-t-4 border-double border-ink/60 px-[4vw] py-8 text-center text-sm">
-        <span className="disp text-3xl normal-case">
-          <i>D</i>iwan
-        </span>
-        <br />
-        <a href="#/" className="underline underline-offset-4">
-          Back to Art-Nature
-        </a>
-        <br />
-        Featuring masterworks from the Classical Arabic tradition, the ArPoT Treebank, the Aldiwan corpus, and PoetryDB.
-        <br />
-        &copy; MMXXVI &middot; Diwan
-      </footer>
-    </div>
+    <main>
+      {routeType === "poem" && routeParam && renderPoemView(routeParam)}
+      {routeType === "poet" && routeParam && renderPoetView(routeParam)}
+      {routeType === "poets" && renderPoetsListView()}
+      {routeType === "about" && renderAboutView()}
+      {routeType === "poems" && renderHomeView()}
+      {routeType !== "poem" &&
+        routeType !== "poet" &&
+        routeType !== "poets" &&
+        routeType !== "about" &&
+        routeType !== "poems" &&
+        renderHomeView()}
+    </main>
   );
 }

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "app": {
+      "root": ".",
+      "framework": "nextjs",
+      "bindings": [
+        {
+          "type": "service",
+          "service": "albert",
+          "format": "url",
+          "env": "ALBERT_URL"
+        },
+        {
+          "type": "service",
+          "service": "gpt-2",
+          "format": "url",
+          "env": "GPT2_URL"
+        }
+      ]
+    },
+    "albert": {
+      "root": "sources/Arabic-Poems-Generation/albert",
+      "runtime": "python"
+    },
+    "gpt-2": {
+      "root": "sources/Arabic-Poems-Generation/gpt-2",
+      "runtime": "python"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "app"
+      }
+    }
+  ]
+}
