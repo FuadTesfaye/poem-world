@@ -6,6 +6,7 @@ export interface Poet {
   place: string;
   language: "ar" | "en" | "bilingual";
   era: string;
+  eraId?: string;
   tag: string;
   img: string;
   imageSrc?: string;

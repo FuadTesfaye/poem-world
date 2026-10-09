@@ -14,6 +14,7 @@ import {
 } from "@/data/diwan";
 import PoemCard from "./PoemCard";
 import PoetCard from "./PoetCard";
+import { searchInRepoArabicArchive } from "@/data/search/arabicOfflineEngine";
 
 interface DiwanProps {
   routeParts: string[];
@@ -26,7 +27,7 @@ interface ExternalResult {
   meter?: string;
   era?: string;
   lines: string[];
-  source: "qafiyah" | "poetrydb";
+  source: string;
 }
 
 const ARABIC_ERAS = [
@@ -60,8 +61,9 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
   const [visibleCount, setVisibleCount] = useState<number>(12);
   const [readingMode, setReadingMode] = useState<"original" | "parallel" | "stanza" | "translation">("parallel");
 
-  // Global Live Archive Bridge State
+  // In-Repo Offline Archive Search State (Zero External API Calls)
   const [archiveQuery, setArchiveQuery] = useState<string>("");
+  const [archiveMeter, setArchiveMeter] = useState<string>("all");
   const [archiveSearching, setArchiveSearching] = useState<boolean>(false);
   const [archiveResults, setArchiveResults] = useState<ExternalResult[]>([]);
   const [archiveSearched, setArchiveSearched] = useState<boolean>(false);
@@ -179,57 +181,56 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
     }
   }
 
-  // Live Archive Search (Qafiyah & PoetryDB)
+  // In-Repo Offline Archive Search (Zero External API Calls)
   async function searchLiveArchive(e: React.FormEvent) {
     e.preventDefault();
     const query = archiveQuery.trim();
-    if (!query) return;
 
     setArchiveSearching(true);
     setArchiveSearched(true);
     setArchiveResults([]);
 
     const results: ExternalResult[] = [];
-    const isArabicQuery = /[\u0600-\u06FF]/.test(query);
+    const isArabicQuery = /[\u0600-\u06FF]/.test(query) || selectedLanguage === "ar";
 
     try {
-      if (isArabicQuery || selectedLanguage === "ar") {
-        // Query Qafiyah API (over 17,000 poems)
-        const res = await fetch(`https://api.qafiyah.com/v1/search?q=${encodeURIComponent(query)}`);
-        if (res.ok) {
-          const data = await res.json();
-          const poems = data.poems?.data || [];
-          for (const item of poems.slice(0, 6)) {
-            results.push({
-              title: item.title || query,
-              poet: item.poet?.name || "شاعر عربي",
-              meter: item.meter?.name || "بحر كلاسيكي",
-              era: item.era?.name || "العصر الذهبي",
-              lines: item.text ? item.text.split("\n").slice(0, 4) : [item.preview || ""],
-              source: "qafiyah",
-            });
-          }
+      if (isArabicQuery || !query) {
+        // Query local in-repo static archive index with zero external network API calls
+        const offlineItems = await searchInRepoArabicArchive(query, archiveMeter, "all");
+        for (const item of offlineItems.slice(0, 18)) {
+          results.push({
+            title: item.title,
+            poet: item.poet,
+            meter: item.meter,
+            era: item.era,
+            lines: item.lines.slice(0, 4),
+            source: "ديوان العرب (In-Repo Local Archive)",
+          });
         }
       } else {
-        // Query PoetryDB (over 3,000 poems)
-        const res = await fetch(`https://poetrydb.org/title/${encodeURIComponent(query)}/title,author,lines`);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data)) {
-            for (const item of data.slice(0, 6)) {
-              results.push({
-                title: item.title,
-                poet: item.author,
-                era: "English Canon",
-                lines: Array.isArray(item.lines) ? item.lines.slice(0, 4) : [],
-                source: "poetrydb",
-              });
-            }
-          }
+        // Local search within bundled English poems
+        const qLower = query.toLowerCase();
+        const matched = POEMS.filter(
+          (p) =>
+            p.language === "en" &&
+            (p.title.toLowerCase().includes(qLower) ||
+             p.poet.toLowerCase().includes(qLower) ||
+             p.text.toLowerCase().includes(qLower))
+        ).slice(0, 12);
+
+        for (const p of matched) {
+          results.push({
+            title: stripTags(p.title),
+            poet: p.poet,
+            meter: p.meter,
+            era: p.era,
+            lines: stripTags(p.text).split("\n").slice(0, 4),
+            source: "English Canon (In-Repo)",
+          });
         }
       }
-    } catch {
-      // Graceful fallback if network drops
+    } catch (err) {
+      console.error("Local archive search error:", err);
     } finally {
       setArchiveResults(results);
       setArchiveSearching(false);
@@ -1210,57 +1211,110 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
           )}
         </section>
 
-        {/* Live Global Archive Bridge */}
-        <section className="px-[4vw] py-16 border-t border-ink/20">
-          <div className="text-center max-w-2xl mx-auto">
-            <p className="sc text-xs text-ember tracking-widest uppercase">Live Global Archives</p>
-            <h2 className="disp text-[clamp(2.4rem,5vw,4.5rem)] text-ink mt-2">
-              <i>E</i>xplore 20,000+ <i>P</i>oems
-            </h2>
-            <p className="italic text-base opacity-85 mt-2">
-              Query beyond the curated canon: directly search live records from <strong>Qafiyah</strong> (17,000+ Arabic poems) and <strong>PoetryDB</strong> (3,000+ English poems).
+        {/* In-Repo Offline Arabic Archive Explorer (Zero External API Calls) */}
+        <section className="px-[4vw] py-16 border-t-2 border-gilt/60 bg-amber-950/5">
+          <div className="text-center max-w-3xl mx-auto">
+            <p className="sc text-xs text-ember tracking-widest uppercase font-bold">
+              In-Repo Offline Archive &bull; ديوان العرب المحلي
             </p>
+            <h2 className="disp text-[clamp(2.5rem,5.5vw,4.8rem)] text-ink mt-2 leading-tight">
+              <i>D</i>iwan <i>A</i>l-<i>A</i>rab &bull; ديوان العرب
+            </h2>
+            <p className="italic text-base sm:text-lg opacity-90 mt-2 leading-relaxed">
+              بحث فوري ومباشر في مستودع الشعر العربي المخزن محلياً داخل المشروع — بدون استدعاء أي خوادم خارجية <strong>(Zero External API Calls)</strong> عبر 14 عصراً تاريخياً وأكثر من 3.8 مليون بيت شعري.
+            </p>
+
+            {/* Metrical Filter Chips (بحور الخليل) */}
+            <div className="mt-6 flex flex-wrap justify-center gap-1.5 text-xs">
+              <span className="sc mr-1 text-ink/70 self-center">البحر:</span>
+              {[
+                { id: "all", label: "كل البحور (All)" },
+                { id: "الطويل", label: "الطويل" },
+                { id: "الكامل", label: "الكامل" },
+                { id: "البسيط", label: "البسيط" },
+                { id: "الوافر", label: "الوافر" },
+                { id: "الخفيف", label: "الخفيف" },
+                { id: "الرمل", label: "الرمل" },
+                { id: "المتقارب", label: "المتقارب" },
+              ].map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => setArchiveMeter(m.id)}
+                  className={`sc px-2.5 py-1 rounded-sm border transition text-xs ${
+                    archiveMeter === m.id
+                      ? "bg-ember text-paper border-ember font-bold shadow-sm"
+                      : "border-ink/20 hover:border-ember text-ink"
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
 
             <form onSubmit={searchLiveArchive} className="mt-6 flex flex-wrap gap-2 justify-center">
               <input
                 type="search"
                 value={archiveQuery}
                 onChange={(e) => setArchiveQuery(e.target.value)}
-                placeholder="Search archive (e.g., المتنبي, Sonnet, Byron...)"
-                className="w-full max-w-md border border-ink/60 bg-transparent px-4 py-2 text-center italic outline-none focus:border-ember"
+                placeholder="ابحث في المستودع المحلي (مثال: المتنبي، قفا نبك، سقط الزند، دمشق، ليلى...)"
+                className="w-full max-w-lg border-2 border-ember/60 bg-paper/80 px-4 py-2.5 text-center italic text-ink outline-none focus:border-ember focus:bg-paper"
               />
-              <button type="submit" className="dbtn" disabled={archiveSearching}>
-                {archiveSearching ? "Consulting Archive..." : "Search Archives"}
+              <button type="submit" className="dbtn font-bold px-6 py-2.5" disabled={archiveSearching}>
+                {archiveSearching ? "جاري البحث في المستودع..." : "بحث في ديوان العرب"}
               </button>
             </form>
           </div>
 
           {archiveSearched && (
-            <div className="mt-10 max-w-5xl mx-auto">
+            <div className="mt-12 max-w-6xl mx-auto">
+              <div className="flex items-center justify-between border-b border-amber-950/20 pb-2 mb-6 text-xs">
+                <span className="sc text-ember font-bold uppercase tracking-wider">
+                  نتائج المستودع المحلي المخزن ({archiveResults.length} قصيدة)
+                </span>
+                <span className="italic opacity-70">100% In-Repo Local Query &bull; 0ms Network Latency</span>
+              </div>
+
               {archiveResults.length > 0 ? (
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                   {archiveResults.map((res, i) => (
-                    <div key={i} className="mat flex flex-col justify-between">
+                    <div key={i} className="mat flex flex-col justify-between p-5 bg-amber-950/5 border border-amber-950/15 rounded-sm hover:border-ember transition">
                       <div>
-                        <div className="flex items-center justify-between text-xs opacity-75">
-                          <span className="sc uppercase text-ember">{res.source}</span>
-                          {res.meter && <span className="ar">{res.meter}</span>}
+                        <div className="flex items-center justify-between text-xs opacity-80 border-b border-ink/10 pb-1.5 mb-2">
+                          <span className="sc uppercase text-ember font-bold">{res.source}</span>
+                          {res.meter && <span className="ar font-semibold text-ink/90 bg-amber-950/10 px-2 py-0.5 rounded">{res.meter}</span>}
                         </div>
-                        <h3 className="disp text-xl mt-2 leading-tight text-ink">{res.title}</h3>
-                        <p className="sc text-sm mt-1">{res.poet}</p>
-                        <div className="mt-4 space-y-1 text-sm italic opacity-85 border-t border-ink/10 pt-3">
-                          {res.lines.map((ln, idx) => (
-                            <p key={idx} className="truncate">{ln}</p>
-                          ))}
+                        <h3 className="disp text-xl mt-1 leading-snug text-ink font-bold">{res.title}</h3>
+                        <p className="sc text-sm mt-1 text-ember font-medium">{res.poet}</p>
+                        <div className="mt-4 space-y-2 text-sm opacity-90 border-t border-ink/10 pt-3" dir="rtl">
+                          {res.lines.map((ln, idx) => {
+                            const parts = ln.split("||");
+                            return (
+                              <p key={idx} className="leading-relaxed">
+                                {parts.length === 2 ? (
+                                  <>
+                                    <span>{parts[0].trim()}</span>
+                                    <span className="text-ember mx-1.5">&#10059;</span>
+                                    <span>{parts[1].trim()}</span>
+                                  </>
+                                ) : (
+                                  ln
+                                )}
+                              </p>
+                            );
+                          })}
                         </div>
+                      </div>
+                      <div className="mt-4 pt-2 border-t border-ink/10 text-xs opacity-60 flex justify-between">
+                        <span>{res.era || "العصر الذهبي"}</span>
+                        <span>مستودع ديوان العرب</span>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
                 !archiveSearching && (
-                  <p className="text-center italic opacity-75">
-                    No archival poems found matching &ldquo;{archiveQuery}&rdquo;. Try another poet or title.
+                  <p className="text-center italic opacity-75 py-8 text-base">
+                    لم يتم العثور على نتائج تطابق &ldquo;{archiveQuery}&rdquo;. جرب اسم شاعر آخر أو بحراً شعرياً مختلفاً.
                   </p>
                 )
               )}

@@ -174,7 +174,7 @@ export default function GlobalNav({ currentRoute = "landing", routeParts = [] }:
             >
               <span className="mr-1.5 opacity-80">&#129671;</span> The Poets
               <span className="ml-1.5 text-[11px] font-normal px-1.5 py-0.2 bg-amber-950/10 rounded-full text-ink/75">
-                63
+                {POETS.length}
               </span>
             </a>
 
@@ -274,7 +274,7 @@ export default function GlobalNav({ currentRoute = "landing", routeParts = [] }:
                 }`}
               >
                 <span>&#129671; The Poets</span>
-                <span className="text-xs font-normal px-2 py-0.5 bg-amber-950/10 rounded-full">63 Masters</span>
+                <span className="text-xs font-normal px-2 py-0.5 bg-amber-950/10 rounded-full">{POETS.length} Masters</span>
               </a>
 
               <a
