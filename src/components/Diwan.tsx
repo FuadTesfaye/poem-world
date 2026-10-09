@@ -15,6 +15,7 @@ import {
 import PoemCard from "./PoemCard";
 import PoetCard from "./PoetCard";
 import DatasetPoetCard from "./DatasetPoetCard";
+import Pagination from "./Pagination";
 import {
   searchInRepoArabicArchive,
   fetchFuadCorpusStream,
@@ -115,6 +116,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
 
   // Infinite Dataset Poets Stream State (fuaf24/arabic-poetry-ashaar: 7,167 poets)
   const [poetsMode, setPoetsMode] = useState<"curated" | "dataset">("curated");
+  const [curatedPoetPage, setCuratedPoetPage] = useState<number>(1);
   const [datasetPoets, setDatasetPoets] = useState<DatasetPoetItem[]>([]);
   const [datasetPoetsPage, setDatasetPoetsPage] = useState<number>(1);
   const [datasetPoetsLoading, setDatasetPoetsLoading] = useState<boolean>(false);
@@ -125,6 +127,41 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
   const [datasetPoetPoemsLoading, setDatasetPoetPoemsLoading] = useState<boolean>(false);
   const [datasetPoetPoemsPage, setDatasetPoetPoemsPage] = useState<number>(1);
   const [datasetPoetPoemsHasMore, setDatasetPoetPoemsHasMore] = useState<boolean>(true);
+
+  function scrollToPoetsTop() {
+    if (typeof window !== "undefined") {
+      const el = document.getElementById("poets-catalog-top");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+  }
+
+  function handleCuratedPageChange(newPage: number) {
+    const totalPages = Math.max(1, Math.ceil(filteredPoets.length / 16));
+    if (newPage > totalPages) {
+      setPoetsMode("dataset");
+      if (datasetPoets.length === 0) {
+        loadDatasetPoets(1, datasetEraFilter, poetSearchQuery, false);
+      }
+      scrollToPoetsTop();
+      return;
+    }
+    setCuratedPoetPage(newPage);
+    scrollToPoetsTop();
+  }
+
+  function handleDatasetPageChange(newPage: number) {
+    if (newPage < 1) {
+      setPoetsMode("curated");
+      const totalPages = Math.max(1, Math.ceil(filteredPoets.length / 16));
+      setCuratedPoetPage(totalPages);
+      scrollToPoetsTop();
+      return;
+    }
+    loadDatasetPoets(newPage, datasetEraFilter, poetSearchQuery, false);
+    scrollToPoetsTop();
+  }
 
   async function loadDatasetPoets(
     pageToLoad: number,
@@ -991,7 +1028,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
     const englishPoetsCount = POETS.filter((p) => p.language === "en").length;
 
     return (
-      <section className="px-[4vw] pt-8">
+      <section id="poets-catalog-top" className="px-[4vw] pt-8">
         <div className="text-center max-w-2xl mx-auto">
           <p className="sc text-xs tracking-widest text-ember uppercase">The Classical &amp; Modern Masters</p>
           <h1 className="disp mt-2 text-[clamp(3.5rem,8vw,7.5rem)] text-ink">
@@ -1005,7 +1042,10 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
           <div className="mt-8 inline-flex items-center p-1 bg-amber-950/10 border border-ink/20 rounded-sm">
             <button
               type="button"
-              onClick={() => setPoetsMode("curated")}
+              onClick={() => {
+                setPoetsMode("curated");
+                scrollToPoetsTop();
+              }}
               className={`flex items-center gap-2 px-5 py-2 text-xs sc font-bold uppercase transition rounded-xs ${
                 poetsMode === "curated"
                   ? "bg-ember text-paper shadow-xs"
@@ -1022,6 +1062,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
                 if (datasetPoets.length === 0) {
                   loadDatasetPoets(1, datasetEraFilter, poetSearchQuery);
                 }
+                scrollToPoetsTop();
               }}
               className={`flex items-center gap-2 px-5 py-2 text-xs sc font-bold uppercase transition rounded-xs ${
                 poetsMode === "dataset"
@@ -1051,7 +1092,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
                     value={poetSearchQuery}
                     onChange={(e) => {
                       setPoetSearchQuery(e.target.value);
-                      setVisiblePoetsCount(16);
+                      setCuratedPoetPage(1);
                     }}
                     className="w-full border border-ink/60 bg-transparent pl-10 pr-10 py-2.5 text-center italic outline-none focus:border-ember"
                     placeholder="Mutanabbi, Shakespeare, Keats, Darwish, Antarah..."
@@ -1062,7 +1103,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
                       type="button"
                       onClick={() => {
                         setPoetSearchQuery("");
-                        setVisiblePoetsCount(16);
+                        setCuratedPoetPage(1);
                       }}
                       className="absolute right-3 top-2.5 text-ink/60 hover:text-ember p-0.5"
                       title="Clear search"
@@ -1085,7 +1126,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
                   onClick={() => {
                     setSelectedLanguage("all");
                     setSelectedEra("all");
-                    setVisiblePoetsCount(16);
+                    setCuratedPoetPage(1);
                   }}
                 >
                   All Traditions ({POETS.length})
@@ -1096,7 +1137,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
                   onClick={() => {
                     setSelectedLanguage("ar");
                     setSelectedEra("all");
-                    setVisiblePoetsCount(16);
+                    setCuratedPoetPage(1);
                   }}
                 >
                   العربية (Arabic Canon &bull; {arabicPoetsCount})
@@ -1107,7 +1148,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
                   onClick={() => {
                     setSelectedLanguage("en");
                     setSelectedEra("all");
-                    setVisiblePoetsCount(16);
+                    setCuratedPoetPage(1);
                   }}
                 >
                   English Canon &bull; {englishPoetsCount} Masters
@@ -1130,7 +1171,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
                       }`}
                       onClick={() => {
                         setSelectedEra(era.id);
-                        setVisiblePoetsCount(16);
+                        setCuratedPoetPage(1);
                       }}
                     >
                       {era.label}
@@ -1151,7 +1192,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
                       }`}
                       onClick={() => {
                         setSelectedEra(era.id);
-                        setVisiblePoetsCount(16);
+                        setCuratedPoetPage(1);
                       }}
                     >
                       {era.label}
@@ -1161,11 +1202,12 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
               )}
             </div>
 
+            {/* Paginated Curated Grid (16 poets per page) */}
             <div className="mt-12 grid gap-8 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
               {filteredPoets.length > 0 ? (
-                filteredPoets.slice(0, visiblePoetsCount).map((poet) => (
-                  <PoetCard key={poet.slug} poet={poet} />
-                ))
+                filteredPoets
+                  .slice((curatedPoetPage - 1) * 16, curatedPoetPage * 16)
+                  .map((poet) => <PoetCard key={poet.slug} poet={poet} />)
               ) : (
                 <p className="col-span-full text-center italic py-8">
                   No poets match your search query. Try another term.
@@ -1173,22 +1215,19 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
               )}
             </div>
 
-            {/* Poets Load More / Pagination Button or Seamless Transition to Dataset */}
-            {visiblePoetsCount < filteredPoets.length ? (
-              <div className="mt-12 text-center flex flex-col items-center gap-3">
-                <button
-                  type="button"
-                  className="dbtn font-bold px-8 py-3 text-xs tracking-wider uppercase transition shadow-sm hover:shadow"
-                  onClick={() => setVisiblePoetsCount((prev) => prev + 16)}
-                >
-                  Load More Masters ({filteredPoets.length - visiblePoetsCount} remaining)
-                </button>
-                <p className="text-xs sc text-ink/70">
-                  Displaying {Math.min(visiblePoetsCount, filteredPoets.length)} of {filteredPoets.length} poets
-                </p>
-              </div>
-            ) : (
-              <div className="mt-16 p-8 border-2 border-gilt/50 bg-amber-950/5 text-center rounded-sm max-w-xl mx-auto space-y-4">
+            {/* Numbered Pagination for Curated Poets */}
+            {filteredPoets.length > 0 && (
+              <Pagination
+                currentPage={curatedPoetPage}
+                totalPages={Math.max(1, Math.ceil(filteredPoets.length / 16))}
+                onPageChange={handleCuratedPageChange}
+                totalItemsLabel={`${filteredPoets.length} شاعراً معتمداً في المستودع`}
+              />
+            )}
+
+            {/* Seamless Transition to Dataset when reaching the final page of repo masters */}
+            {curatedPoetPage >= Math.max(1, Math.ceil(filteredPoets.length / 16)) && (
+              <div className="mt-14 p-8 border-2 border-gilt/50 bg-amber-950/5 text-center rounded-sm max-w-xl mx-auto space-y-4">
                 <div className="flex justify-center text-ember">
                   <DatasetIcon className="w-8 h-8" />
                 </div>
@@ -1196,9 +1235,9 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
                   استكشف خزانة شعراء الموسوعة الكبرى
                 </h3>
                 <p className="text-sm italic text-ink/80 leading-relaxed" dir="rtl">
-                  أتممت استعراض الرواد المعلمين (106 شعراء). تحتوي خزانة الموسوعة المستوردة من 
+                  أتممت استعراض الرواد المعلمين المحفوظين في المستودع ({filteredPoets.length} شاعراً). تحتوي خزانة الموسوعة المستوردة من 
                   <strong className="text-ember font-mono text-xs mx-1">fuaf24/arabic-poetry-ashaar</strong> 
-                  على أكثر من 7,167 شاعراً و 254,630 قصيدة عبر كافة العصور.
+                  على أكثر من 7,167 شاعراً و 254,630 قصيدة عبر كافة العصور مع ترقيم صفحات كامل.
                 </p>
                 <button
                   type="button"
@@ -1207,10 +1246,11 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
                     if (datasetPoets.length === 0) {
                       loadDatasetPoets(1, "all", "");
                     }
+                    scrollToPoetsTop();
                   }}
                   className="dbtn font-bold px-8 py-3 text-xs tracking-widest uppercase bg-ember text-paper border-ember hover:bg-ember/90 transition shadow"
                 >
-                  متابعة التصفح في خزانة الموسوعة (7,167 شاعراً) &darr;
+                  بدء التصفح المرقم في خزانة الموسوعة (7,167 شاعراً) &darr;
                 </button>
               </div>
             )}
@@ -1312,28 +1352,15 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
               </div>
             )}
 
-            {/* Infinite Load More Dataset Poets Button */}
-            {datasetPoetsHasMore && datasetPoets.length > 0 && (
-              <div className="mt-14 text-center flex flex-col items-center gap-3">
-                <button
-                  type="button"
-                  disabled={datasetPoetsLoading}
-                  onClick={() => loadDatasetPoets(datasetPoetsPage + 1, datasetEraFilter, poetSearchQuery, true)}
-                  className="dbtn font-bold px-10 py-3.5 text-xs tracking-wider uppercase transition shadow-sm hover:shadow"
-                >
-                  {datasetPoetsLoading ? (
-                    <span className="flex items-center gap-2">
-                      <SparkIcon className="w-4 h-4 animate-spin" />
-                      <span>جارٍ جلب دفعة جديدة من خزانة الموسوعة...</span>
-                    </span>
-                  ) : (
-                    <span>جلب المزيد من شعراء الموسوعة (دفعة تالية) &darr;</span>
-                  )}
-                </button>
-                <p className="text-xs sc text-ink/70">
-                  تم استعراض {datasetPoets.length} شاعراً من إجمالي 7,167 شاعراً في خزانة fuaf24
-                </p>
-              </div>
+            {/* Numbered Pagination for Dataset Poets (448 pages total) */}
+            {datasetPoets.length > 0 && (
+              <Pagination
+                currentPage={datasetPoetsPage}
+                totalPages={448}
+                onPageChange={handleDatasetPageChange}
+                isLoading={datasetPoetsLoading}
+                totalItemsLabel="7,167 شاعراً في خزانة fuaf24"
+              />
             )}
           </div>
         )}
