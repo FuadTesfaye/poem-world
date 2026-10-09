@@ -14,6 +14,9 @@ export default function Landing({ hidden = false }: LandingProps) {
         <a href="#expositions">Expositions</a>
         <a href="#interactive">Features</a>
         <a href="#immerse">Immerse</a>
+        <a href="#/art" className="text-ember font-medium hover:underline">
+          Art Gallery &rarr;
+        </a>
         <a href="#/poems" className="col-span-2 text-ember md:col-span-1">
           Diwan &rarr;
         </a>
@@ -233,6 +236,7 @@ export default function Landing({ hidden = false }: LandingProps) {
           <a href="#expositions">Expositions</a>
           <a href="#interactive">Features</a>
           <a href="#immerse">Immerse</a>
+          <a href="#/art" className="text-ember font-medium">Art Gallery</a>
           <a href="#/poems">Diwan</a>
         </div>
         <div className="mt-6 grid w-full items-center gap-3 text-center sm:grid-cols-3">

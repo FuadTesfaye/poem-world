@@ -3,13 +3,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import Landing from "@/components/Landing";
 import Diwan from "@/components/Diwan";
+import ArtGallery from "@/components/ArtGallery";
 import ParallaxZoom from "@/components/ParallaxZoom";
 import { POEMS, getPoet, getPoem, stripTags } from "@/data/diwan";
+import { getArtwork } from "@/data/art";
 
 const LANDING_TITLE = "Art-Nature — a place where poetry meets beauty";
 
 function isDw(hash: string): boolean {
-  return /^#\/(poems|poets|poem|poet|about)(\/|$)/.test(hash);
+  return /^#\/(poems|poets|poem|poet|about|art)(\/|$)/.test(hash);
 }
 
 export default function Home() {
@@ -67,6 +69,13 @@ export default function Home() {
         }
       } else if (parts[0] === "poets") {
         title = "The Poets · Diwan";
+      } else if (parts[0] === "art") {
+        if (parts[1]) {
+          const artwork = getArtwork(parts[1]);
+          title = artwork ? `${artwork.title} — ${artwork.artist} · Art Gallery` : "Art Gallery · Diwan";
+        } else {
+          title = "Art Gallery — Masterpieces of World Culture · Diwan";
+        }
       } else if (parts[0] === "about") {
         title = "About · Diwan";
       } else {
@@ -101,7 +110,11 @@ export default function Home() {
     <>
       <ParallaxZoom />
       <Landing hidden={mounted && isDiwan} />
-      <Diwan routeParts={routeParts} hidden={!mounted || !isDiwan} />
+      {routeParts[0] === "art" ? (
+        <ArtGallery routeParts={routeParts} />
+      ) : (
+        <Diwan routeParts={routeParts} hidden={!mounted || !isDiwan} />
+      )}
     </>
   );
 }

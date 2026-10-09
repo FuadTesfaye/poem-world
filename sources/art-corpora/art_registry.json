@@ -1,0 +1,35 @@
+{
+  "sources": [
+    {
+      "id": "aic",
+      "name": "The Art Institute of Chicago",
+      "apiBase": "https://api.artic.edu/api/v1",
+      "iiifBase": "https://www.artic.edu/iiif/2",
+      "features": ["curatorial_essays", "provenance_history", "iiif_zooming"],
+      "license": "CC0 Public Domain"
+    },
+    {
+      "id": "rijksmuseum",
+      "name": "Rijksmuseum Amsterdam",
+      "apiBase": "https://www.rijksmuseum.nl/api",
+      "features": ["wall_plaques", "rijksstudio_stories", "dutch_golden_age"],
+      "license": "CC0 Public Domain"
+    },
+    {
+      "id": "met",
+      "name": "The Metropolitan Museum of Art",
+      "apiBase": "https://collectionapi.metmuseum.org/public/collection/v1",
+      "features": ["5000_years_art", "global_departments", "open_access"],
+      "license": "CC0 Public Domain"
+    },
+    {
+      "id": "europeana",
+      "name": "Europeana Collections",
+      "apiBase": "https://api.europeana.eu/record/v2",
+      "features": ["pan_european_federation", "movement_taxonomy", "curated_narratives"],
+      "license": "Open Cultural Access"
+    }
+  ],
+  "curated_masterpieces_count": 16,
+  "local_image_directory": "public/images/art"
+}

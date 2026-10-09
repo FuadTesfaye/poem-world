@@ -303,6 +303,7 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
             <nav className="sc text-xs" aria-label="Breadcrumb">
               <a href="#/poems">Diwan</a> &nbsp;/&nbsp;{" "}
               <a href="#/poets">Poets</a> &nbsp;/&nbsp;{" "}
+              <a href="#/art" className="text-ember font-medium hover:underline">Art Gallery</a> &nbsp;/&nbsp;{" "}
               {po && <a href={`#/poet/${po.slug}`}>{po.name}</a>}
             </nav>
 
@@ -471,7 +472,8 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
           <div>
             <nav className="sc text-xs">
               <a href="#/poems">Diwan</a> &nbsp;/&nbsp;{" "}
-              <a href="#/poets">Poets</a>
+              <a href="#/poets">Poets</a> &nbsp;/&nbsp;{" "}
+              <a href="#/art" className="text-ember font-medium hover:underline">Art Gallery</a>
             </nav>
             <h1 className="disp mt-4 text-[clamp(2.8rem,7vw,7rem)] text-ink leading-tight">{p.name}</h1>
             {p.ar && <p className="ar text-[clamp(2.2rem,4.5vw,3.8rem)] text-ember font-medium mt-1">{p.ar}</p>}
@@ -608,6 +610,9 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
             >
               English Canon (35 Masters)
             </button>
+            <a href="#/art" className="dbtn text-ember font-medium">
+              Art Gallery &rarr;
+            </a>
           </div>
 
           {/* Sub-Era Filter Pills */}
@@ -709,6 +714,9 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
               </a>
               <a href="#/poets" className="dbtn">
                 All Poets ({POETS.length})
+              </a>
+              <a href="#/art" className="dbtn text-ember font-medium">
+                Art Gallery &rarr;
               </a>
             </div>
           </div>
