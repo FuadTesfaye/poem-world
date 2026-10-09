@@ -1,0 +1,22 @@
+# Exeter Cathedral Library MS 3501: The Wanderer (Exeter Book, folios 76b–78a)
+# Metrical Form: Anglo-Saxon Alliterative Half-Lines (Sievers Type A/B/C) with Medial Caesura
+
+Oft him anhaga | are gebideð,
+metudes miltse, | þeah þe he modcearig
+geond lagulade | longe sceolde
+hreran mid hondum | hrimcealde sæ,
+wadan wræclastas. | Wyrd bið ful aræd!
+
+Swa cwæð eardstapa, | earfeþa gemyndig,
+wraþra wælsleahta, | winemæga hryre:
+"Oft ic sceolde ana | uhtna gehwylce
+mine ceare cwiþan. | Nis nu cwicra nan
+þe ic him modsefan | minne durre
+sweotule asecgan." |
+
+[Glossary & Translation Notes]
+anhaga (m): solitary one, recluse
+wyrd (f): fate, destiny, providence
+eardstapa (m): earth-stepper, wanderer
+wælsleaht (m): slaughter, mortal stroke
+sweotule (adv): openly, clearly, plainly

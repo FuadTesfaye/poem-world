@@ -1,0 +1,109 @@
+{
+  "corpora": [
+    {
+      "id": "gutenberg-poetry-corpus",
+      "name": "Gutenberg Poetry Corpus",
+      "curator": "Allison Parrish",
+      "volume": "3,085,117 lines (~1,191 volumes)",
+      "primarySources": "Project Gutenberg",
+      "keyMetadata": [
+        "line-level JSONL",
+        "Gutenberg book IDs",
+        "author entity names",
+        "full poetic text streams"
+      ],
+      "accessUrl": "https://github.com/aparrish/gutenberg-poetry-corpus",
+      "huggingFaceUrl": "https://huggingface.co/datasets/allisonparrish/gutenberg-poetry-corpus",
+      "license": "Public Domain / CC0",
+      "format": "JSONL",
+      "description": "Massive public-domain English poetry corpus compiled by extracting poetic lines from English-language books in Project Gutenberg."
+    },
+    {
+      "id": "poemhunter-dataset",
+      "name": "Poems (PoemHunter) Dataset",
+      "curator": "PoemHunter Community & Kaggle Curators",
+      "volume": "~500,000+ poems (~8,000+ poets)",
+      "primarySources": "PoemHunter.com",
+      "keyMetadata": [
+        "poet biography",
+        "poem title",
+        "full stanza body",
+        "poet country of origin",
+        "poet era"
+      ],
+      "accessUrl": "https://www.kaggle.com/datasets/tgdivy/poetry-foundation-poems",
+      "license": "Open Data Commons / Research Use",
+      "format": "CSV / JSON",
+      "description": "Enormous breadth spanning classical antiquity to 20th-century masters. Requires orthographic normalization and deduplication filtering."
+    },
+    {
+      "id": "poetry-foundation-archive",
+      "name": "Poetry Foundation Archive",
+      "curator": "The Poetry Foundation (poets.org / poetryfoundation.org)",
+      "volume": "~13,000–15,000 curated canonical poems",
+      "primarySources": "Poetry Magazine & The Poetry Foundation",
+      "keyMetadata": [
+        "poetic forms (Sonnet, Villanelle, Sestina, Ballad, Blank Verse)",
+        "literary movements (Beat, Harlem Renaissance, Imagism, Metaphysical, Romantic)",
+        "historical eras",
+        "curated topic tags"
+      ],
+      "accessUrl": "https://www.kaggle.com/datasets/johnhallman/complete-poetryfoundationorg-dataset",
+      "license": "Educational / Curatorial Reference",
+      "format": "JSON / Parquet",
+      "description": "The gold standard for structural taxonomy and curated literary metadata across British, American, and Anglophone traditions."
+    },
+    {
+      "id": "chadwyck-healey-english-poetry",
+      "name": "Chadwyck-Healey English Poetry Database",
+      "curator": "ProQuest / Chadwyck-Healey Scholarly Editors",
+      "volume": "~183,000 poems (Canon from 600 to 1900 CE)",
+      "primarySources": "Original printed editions and early manuscript copies",
+      "keyMetadata": [
+        "early modern copy-text collation",
+        "first edition lineation and stanza indentation",
+        "historical orthography tags",
+        "poet canonical identifier"
+      ],
+      "accessUrl": "https://www.proquest.com/products-services/literature_collections.html",
+      "zenodoUrl": "https://zenodo.org/record/4636906",
+      "license": "Scholarly Archive / Institutional Edition",
+      "format": "TEI XML / SGML / Text",
+      "description": "The scholarly gold standard covering 1,300 years of the English poetic canon, providing unmodernized copy-texts with critical apparatus."
+    },
+    {
+      "id": "old-middle-english-corpora",
+      "name": "Old & Middle English Corpora (Anglo-Saxon & Early English)",
+      "curator": "Exeter Book, Vercelli Book, Oxford Text Archive & Toronto Dictionary of Old English",
+      "volume": "~30,000 lines (Anglo-Saxon) + Middle English Chaucerian canon",
+      "primarySources": "Exeter Cathedral Library MS 3501, Vercelli Cathedral MS CXVII, Cotton Nero A.x",
+      "keyMetadata": [
+        "alliterative half-lines (a-verse / b-verse)",
+        "caesura markers",
+        "side-by-side Modern English translations",
+        "philological grammatical tags"
+      ],
+      "accessUrl": "https://www.sacred-texts.com/neu/as/index.htm",
+      "license": "Public Domain Academic",
+      "format": "TEI XML / Markdown / JSON",
+      "description": "All extant Old English heroic and elegiac poetry (Beowulf, The Wanderer, Cædmon's Hymn) with facing-page translations and Middle English texts."
+    },
+    {
+      "id": "representative-poetry-online",
+      "name": "Representative Poetry Online (RPO)",
+      "curator": "University of Toronto Department of English & Ian Lancashire",
+      "volume": "~4,800 canonical poems (730 poets)",
+      "primarySources": "University of Toronto Scholarly Editions",
+      "keyMetadata": [
+        "verified copy-texts with scholarly variant line notes",
+        "rhyme scheme structural tags",
+        "metrical scansion tags",
+        "historical biographical annotations"
+      ],
+      "accessUrl": "https://rpo.library.utoronto.ca/",
+      "license": "Open Academic Access",
+      "format": "HTML / TEI / JSON",
+      "description": "Exquisite scholarly editions with verified lineation, detailed footnotes, and structural metrical analysis for classroom and archival research."
+    }
+  ]
+}

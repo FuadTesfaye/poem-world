@@ -1,11 +1,12 @@
 import { Poem } from "../types";
 import { ARABIC_POEMS } from "./arabic";
-import { OTHER_POEMS } from "./other";
+import { ENGLISH_POEMS } from "./english";
 
 export { ARABIC_POEMS } from "./arabic";
-export { OTHER_POEMS } from "./other";
+export { ENGLISH_POEMS } from "./english";
+export const OTHER_POEMS = ENGLISH_POEMS;
 
-export const POEMS: Poem[] = [...ARABIC_POEMS, ...OTHER_POEMS];
+export const POEMS: Poem[] = [...ARABIC_POEMS, ...ENGLISH_POEMS];
 
 export function getPoem(slug: string): Poem | undefined {
   return POEMS.find((p) => p.slug === slug);

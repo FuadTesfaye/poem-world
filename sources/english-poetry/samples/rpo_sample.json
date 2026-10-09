@@ -1,0 +1,21 @@
+{
+  "rpo_id": "poem-18",
+  "title": "Sonnet 18: Shall I compare thee to a summer's day?",
+  "poet": "Shakespeare, William",
+  "poet_dates": "1564-1616",
+  "publication_date": "1609",
+  "form": "Sonnet",
+  "meter": "Iambic pentameter",
+  "rhyme_scheme": "abab cdcd efef gg",
+  "copy_text": "Sonnets (London: Thomas Thorpe, 1609)",
+  "lines": [
+    "Shall I compare thee to a summer's day?",
+    "Thou art more lovely and more temperate:",
+    "Rough winds do shake the darling buds of May,",
+    "And summer's lease hath all too short a date:"
+  ],
+  "scholarly_notes": [
+    { "line": 4, "note": "'lease': legal metaphor denoting temporary tenure or granted duration." },
+    { "line": 7, "note": "'fair from fair': every beautiful thing from its beauty eventually declines." }
+  ]
+}

@@ -29,6 +29,26 @@ interface ExternalResult {
   source: "qafiyah" | "poetrydb";
 }
 
+const ARABIC_ERAS = [
+  { id: "all", label: "All Eras (جميع العصور)" },
+  { id: "jahili", label: "العصر الجاهلي (Pre-Islamic)" },
+  { id: "umayyad", label: "العصر الأموي (Umayyad)" },
+  { id: "abbasid", label: "العصر العباسي (Abbasid)" },
+  { id: "andalusian", label: "العصر الأندلسي (Andalusian)" },
+  { id: "modern", label: "العصر الحديث (Modern)" },
+];
+
+const ENGLISH_ERAS = [
+  { id: "all", label: "All English Eras" },
+  { id: "old", label: "Old & Middle English" },
+  { id: "renaissance", label: "Renaissance & Elizabethan" },
+  { id: "metaphysical", label: "Metaphysical & Jacobean" },
+  { id: "romantic", label: "Romantic Movement" },
+  { id: "victorian", label: "Victorian Era" },
+  { id: "american", label: "19th C. American" },
+  { id: "modernist", label: "Modernist & 20th C." },
+];
+
 export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
   const [selectedPoetSlug, setSelectedPoetSlug] = useState<string>("all");
   const [selectedLanguage, setSelectedLanguage] = useState<string>("all");
@@ -54,7 +74,15 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
       const poetObj = getPoet(p.poet);
       if (selectedPoetSlug !== "all" && p.poet !== selectedPoetSlug) return false;
       if (selectedLanguage !== "all" && p.language !== selectedLanguage) return false;
-      if (selectedEra !== "all" && !p.era.toLowerCase().includes(selectedEra.toLowerCase())) return false;
+      if (selectedEra !== "all") {
+        const eraLower = p.era.toLowerCase();
+        const selLower = selectedEra.toLowerCase();
+        const eraMatch =
+          eraLower.includes(selLower) ||
+          (selLower === "old" && (eraLower.includes("old english") || eraLower.includes("middle english") || eraLower.includes("anglo-saxon"))) ||
+          (selLower === "modernist" && (eraLower.includes("modernist") || eraLower.includes("20th century") || eraLower.includes("confessional") || eraLower.includes("harlem")));
+        if (!eraMatch) return false;
+      }
       if (!q) return true;
 
       const haystack = (
@@ -84,7 +112,15 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
         if (selectedLanguage === "ar" && poet.language === "en") return false;
         if (selectedLanguage === "en" && poet.language === "ar") return false;
       }
-      if (selectedEra !== "all" && !poet.era.toLowerCase().includes(selectedEra.toLowerCase())) return false;
+      if (selectedEra !== "all") {
+        const eraLower = poet.era.toLowerCase();
+        const selLower = selectedEra.toLowerCase();
+        const eraMatch =
+          eraLower.includes(selLower) ||
+          (selLower === "old" && (eraLower.includes("old english") || eraLower.includes("middle english") || eraLower.includes("anglo-saxon"))) ||
+          (selLower === "modernist" && (eraLower.includes("modernist") || eraLower.includes("20th century") || eraLower.includes("confessional") || eraLower.includes("harlem")));
+        if (!eraMatch) return false;
+      }
       if (!q) return true;
 
       const haystack = (
@@ -103,6 +139,28 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
       return haystack.includes(q);
     });
   }, [poetSearchQuery, selectedLanguage, selectedEra]);
+
+  // Dynamic available poet chips based on active tradition and era
+  const availableChips = useMemo(() => {
+    let poets = POETS;
+    if (selectedLanguage === "ar") {
+      poets = poets.filter((p) => p.language === "ar");
+    } else if (selectedLanguage === "en") {
+      poets = poets.filter((p) => p.language === "en");
+    }
+    if (selectedEra !== "all") {
+      const selLower = selectedEra.toLowerCase();
+      poets = poets.filter((p) => {
+        const eraLower = p.era.toLowerCase();
+        return (
+          eraLower.includes(selLower) ||
+          (selLower === "old" && (eraLower.includes("old english") || eraLower.includes("middle english") || eraLower.includes("anglo-saxon"))) ||
+          (selLower === "modernist" && (eraLower.includes("modernist") || eraLower.includes("20th century") || eraLower.includes("confessional") || eraLower.includes("harlem")))
+        );
+      });
+    }
+    return [{ slug: "all", name: selectedLanguage === "ar" ? "جميع الشعراء" : "All poets" }, ...poets];
+  }, [selectedLanguage, selectedEra]);
 
   if (hidden) return null;
 
@@ -523,25 +581,71 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
             <button
               className="dbtn"
               aria-pressed={selectedLanguage === "all"}
-              onClick={() => setSelectedLanguage("all")}
+              onClick={() => {
+                setSelectedLanguage("all");
+                setSelectedEra("all");
+              }}
             >
               All Traditions ({POETS.length})
             </button>
             <button
               className="dbtn"
               aria-pressed={selectedLanguage === "ar"}
-              onClick={() => setSelectedLanguage("ar")}
+              onClick={() => {
+                setSelectedLanguage("ar");
+                setSelectedEra("all");
+              }}
             >
-              العربية (Arabic Traditions)
+              العربية (Arabic Canon - 28)
             </button>
             <button
               className="dbtn"
               aria-pressed={selectedLanguage === "en"}
-              onClick={() => setSelectedLanguage("en")}
+              onClick={() => {
+                setSelectedLanguage("en");
+                setSelectedEra("all");
+              }}
             >
-              English &amp; World Traditions
+              English Canon (35 Masters)
             </button>
           </div>
+
+          {/* Sub-Era Filter Pills */}
+          {selectedLanguage === "en" && (
+            <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+              {ENGLISH_ERAS.map((era) => (
+                <button
+                  key={era.id}
+                  className={`text-xs py-1 px-3 transition-colors border ${
+                    selectedEra === era.id
+                      ? "bg-ember text-paper border-ember"
+                      : "border-ink/30 hover:border-ember/70 text-ink"
+                  }`}
+                  onClick={() => setSelectedEra(era.id)}
+                >
+                  {era.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {selectedLanguage === "ar" && (
+            <div className="flex flex-wrap items-center justify-center gap-2 pt-2" dir="rtl">
+              {ARABIC_ERAS.map((era) => (
+                <button
+                  key={era.id}
+                  className={`text-xs py-1 px-3 transition-colors border ${
+                    selectedEra === era.id
+                      ? "bg-ember text-paper border-ember"
+                      : "border-ink/30 hover:border-ember/70 text-ink"
+                  }`}
+                  onClick={() => setSelectedEra(era.id)}
+                >
+                  {era.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
@@ -586,7 +690,6 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
 
   // 5. Home / All Poems View
   function renderHomeView() {
-    const allChips = [{ slug: "all", name: "All poets" }, ...POETS];
     const paginatedPoems = filteredPoems.slice(0, visibleCount);
 
     return (
@@ -660,12 +763,14 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
 
         <section id="poems" className="px-[4vw] py-12">
           {/* Language Tabs */}
-          <div className="flex flex-wrap items-center justify-center gap-2 mb-6">
+          <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
             <button
               className="dbtn"
               aria-pressed={selectedLanguage === "all"}
               onClick={() => {
                 setSelectedLanguage("all");
+                setSelectedEra("all");
+                setSelectedPoetSlug("all");
                 setVisibleCount(12);
               }}
             >
@@ -676,6 +781,8 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
               aria-pressed={selectedLanguage === "ar"}
               onClick={() => {
                 setSelectedLanguage("ar");
+                setSelectedEra("all");
+                setSelectedPoetSlug("all");
                 setVisibleCount(12);
               }}
             >
@@ -686,19 +793,66 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
               aria-pressed={selectedLanguage === "en"}
               onClick={() => {
                 setSelectedLanguage("en");
+                setSelectedEra("all");
+                setSelectedPoetSlug("all");
                 setVisibleCount(12);
               }}
             >
-              English &amp; World Traditions
+              English Canon
             </button>
           </div>
+
+          {/* Sub-Era Filter Pills */}
+          {selectedLanguage === "en" && (
+            <div className="flex flex-wrap items-center justify-center gap-2 mb-6">
+              {ENGLISH_ERAS.map((era) => (
+                <button
+                  key={era.id}
+                  className={`text-xs py-1 px-3 transition-colors border ${
+                    selectedEra === era.id
+                      ? "bg-ember text-paper border-ember"
+                      : "border-ink/30 hover:border-ember/70 text-ink"
+                  }`}
+                  onClick={() => {
+                    setSelectedEra(era.id);
+                    setSelectedPoetSlug("all");
+                    setVisibleCount(12);
+                  }}
+                >
+                  {era.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {selectedLanguage === "ar" && (
+            <div className="flex flex-wrap items-center justify-center gap-2 mb-6" dir="rtl">
+              {ARABIC_ERAS.map((era) => (
+                <button
+                  key={era.id}
+                  className={`text-xs py-1 px-3 transition-colors border ${
+                    selectedEra === era.id
+                      ? "bg-ember text-paper border-ember"
+                      : "border-ink/30 hover:border-ember/70 text-ink"
+                  }`}
+                  onClick={() => {
+                    setSelectedEra(era.id);
+                    setSelectedPoetSlug("all");
+                    setVisibleCount(12);
+                  }}
+                >
+                  {era.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Poet Filter Chips */}
           <div
             className="flex flex-wrap items-center justify-center gap-2 max-w-4xl mx-auto"
             id="chips"
           >
-            {allChips.slice(0, 18).map((c) => (
+            {availableChips.slice(0, 24).map((c) => (
               <button
                 key={c.slug}
                 className="dbtn text-xs py-1 px-3"
