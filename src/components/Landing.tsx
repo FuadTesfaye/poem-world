@@ -9,15 +9,15 @@ export default function Landing({ hidden = false }: LandingProps) {
 
   return (
     <div id="landing">
-      <nav className="sc grid w-full grid-cols-2 gap-y-2 px-[4vw] pt-5 text-center text-[clamp(.75rem,1.1vw,1.1rem)] md:flex md:items-center md:justify-between">
-        <a href="#philosophy">Our Philosophy</a>
-        <a href="#expositions">Expositions</a>
-        <a href="#interactive">Features</a>
-        <a href="#immerse">Immerse</a>
-        <a href="#/art" className="text-ember font-medium hover:underline">
+      <nav className="sc flex flex-wrap items-center justify-center gap-4 sm:gap-8 px-[4vw] py-3 text-center text-[clamp(.75rem,1vw,1rem)] border-b border-amber-950/15 bg-amber-950/5">
+        <a href="#philosophy" className="hover:text-ember transition">Our Philosophy</a>
+        <a href="#expositions" className="hover:text-ember transition">Expositions</a>
+        <a href="#interactive" className="hover:text-ember transition">Features</a>
+        <a href="#immerse" className="hover:text-ember transition">Immerse</a>
+        <a href="#/art" className="text-ember font-semibold hover:underline">
           Art Gallery &rarr;
         </a>
-        <a href="#/poems" className="col-span-2 text-ember md:col-span-1">
+        <a href="#/poems" className="text-ember font-semibold hover:underline">
           Diwan &rarr;
         </a>
       </nav>

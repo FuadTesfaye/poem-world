@@ -5,6 +5,7 @@ import Landing from "@/components/Landing";
 import Diwan from "@/components/Diwan";
 import ArtGallery from "@/components/ArtGallery";
 import ParallaxZoom from "@/components/ParallaxZoom";
+import GlobalNav from "@/components/GlobalNav";
 import { POEMS, getPoet, getPoem, stripTags } from "@/data/diwan";
 import { getArtwork } from "@/data/art";
 
@@ -109,6 +110,10 @@ export default function Home() {
   return (
     <>
       <ParallaxZoom />
+      <GlobalNav
+        currentRoute={routeParts[0] || (isDiwan ? "poems" : "landing")}
+        routeParts={routeParts}
+      />
       <Landing hidden={mounted && isDiwan} />
       {routeParts[0] === "art" ? (
         <ArtGallery routeParts={routeParts} />
