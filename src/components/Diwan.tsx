@@ -14,11 +14,16 @@ import {
 } from "@/data/diwan";
 import PoemCard from "./PoemCard";
 import PoetCard from "./PoetCard";
+import DatasetPoetCard from "./DatasetPoetCard";
 import {
   searchInRepoArabicArchive,
   fetchFuadCorpusStream,
   FuadCorpusPoemResult,
   FuadCorpusPage,
+  fetchDatasetPoetsStream,
+  fetchPoetPoemsFromDataset,
+  DatasetPoetItem,
+  DatasetPoetPoem,
 } from "@/data/search/arabicOfflineEngine";
 import {
   SearchIcon,
@@ -68,6 +73,18 @@ const ENGLISH_ERAS = [
   { id: "modernist", label: "Modernist & 20th C." },
 ];
 
+const DATASET_ERAS = [
+  { id: "all", label: "جميع العصور (7,167 شاعراً)" },
+  { id: "الجاهلي", label: "العصر الجاهلي" },
+  { id: "الأموي", label: "العصر الأموي" },
+  { id: "العباسي", label: "العصر العباسي" },
+  { id: "الأندلسي", label: "العصر الأندلسي" },
+  { id: "الأيوبي", label: "العصر الأيوبي" },
+  { id: "المملوكي", label: "العصر المملوكي" },
+  { id: "العثماني", label: "العصر العثماني" },
+  { id: "الحديث", label: "العصر الحديث" },
+];
+
 export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
   const [selectedPoetSlug, setSelectedPoetSlug] = useState<string>("all");
   const [selectedLanguage, setSelectedLanguage] = useState<string>("all");
@@ -95,6 +112,76 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
   const [cloudLoading, setCloudLoading] = useState<boolean>(false);
   const [cloudData, setCloudData] = useState<FuadCorpusPage | null>(null);
   const [activeCloudPoemModal, setActiveCloudPoemModal] = useState<FuadCorpusPoemResult | null>(null);
+
+  // Infinite Dataset Poets Stream State (fuaf24/arabic-poetry-ashaar: 7,167 poets)
+  const [poetsMode, setPoetsMode] = useState<"curated" | "dataset">("curated");
+  const [datasetPoets, setDatasetPoets] = useState<DatasetPoetItem[]>([]);
+  const [datasetPoetsPage, setDatasetPoetsPage] = useState<number>(1);
+  const [datasetPoetsLoading, setDatasetPoetsLoading] = useState<boolean>(false);
+  const [datasetPoetsHasMore, setDatasetPoetsHasMore] = useState<boolean>(true);
+  const [datasetEraFilter, setDatasetEraFilter] = useState<string>("all");
+  const [activeDatasetPoet, setActiveDatasetPoet] = useState<DatasetPoetItem | null>(null);
+  const [datasetPoetPoems, setDatasetPoetPoems] = useState<DatasetPoetPoem[]>([]);
+  const [datasetPoetPoemsLoading, setDatasetPoetPoemsLoading] = useState<boolean>(false);
+  const [datasetPoetPoemsPage, setDatasetPoetPoemsPage] = useState<number>(1);
+  const [datasetPoetPoemsHasMore, setDatasetPoetPoemsHasMore] = useState<boolean>(true);
+
+  async function loadDatasetPoets(
+    pageToLoad: number,
+    eraToUse: string = datasetEraFilter,
+    searchToUse: string = poetSearchQuery,
+    append: boolean = false
+  ) {
+    setDatasetPoetsLoading(true);
+    try {
+      const res = await fetchDatasetPoetsStream(pageToLoad, 16, eraToUse, searchToUse);
+      if (res && res.poets) {
+        setDatasetPoets((prev) => (append ? [...prev, ...res.poets] : res.poets));
+        setDatasetPoetsPage(pageToLoad);
+        setDatasetPoetsHasMore(res.hasMore);
+      }
+    } catch (err) {
+      console.error("Failed to load dataset poets:", err);
+    } finally {
+      setDatasetPoetsLoading(false);
+    }
+  }
+
+  async function openDatasetPoetDiwan(poet: DatasetPoetItem) {
+    setActiveDatasetPoet(poet);
+    setDatasetPoetPoems([]);
+    setDatasetPoetPoemsPage(1);
+    setDatasetPoetPoemsLoading(true);
+    try {
+      const res = await fetchPoetPoemsFromDataset(poet.name, poet.startOffset, 1, 15);
+      if (res && res.poems) {
+        setDatasetPoetPoems(res.poems);
+        setDatasetPoetPoemsHasMore(res.hasMore);
+      }
+    } catch (err) {
+      console.error("Failed to fetch poet poems from dataset:", err);
+    } finally {
+      setDatasetPoetPoemsLoading(false);
+    }
+  }
+
+  async function loadMorePoetPoems(poet: DatasetPoetItem) {
+    if (datasetPoetPoemsLoading || !datasetPoetPoemsHasMore) return;
+    const nextPage = datasetPoetPoemsPage + 1;
+    setDatasetPoetPoemsLoading(true);
+    try {
+      const res = await fetchPoetPoemsFromDataset(poet.name, poet.startOffset, nextPage, 15);
+      if (res && res.poems) {
+        setDatasetPoetPoems((prev) => [...prev, ...res.poems]);
+        setDatasetPoetPoemsPage(nextPage);
+        setDatasetPoetPoemsHasMore(res.hasMore);
+      }
+    } catch (err) {
+      console.error("Failed to load more poet poems:", err);
+    } finally {
+      setDatasetPoetPoemsLoading(false);
+    }
+  }
 
   async function loadCloudPage(newOffset: number, meterToUse: string = cloudMeter) {
     setCloudLoading(true);
@@ -913,156 +1000,527 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
           <p className="mt-4 italic text-lg opacity-85 leading-relaxed">
             Cross centuries and empires: the pre-Islamic desert wanderers, the court masters of Baghdad and Damascus, the poets of Andalusia, the English Romantics, and the voices of modern memory.
           </p>
+
+          {/* Roster Mode Switcher: Curated Masters vs. Dataset Archive (7,167 Poets) */}
+          <div className="mt-8 inline-flex items-center p-1 bg-amber-950/10 border border-ink/20 rounded-sm">
+            <button
+              type="button"
+              onClick={() => setPoetsMode("curated")}
+              className={`flex items-center gap-2 px-5 py-2 text-xs sc font-bold uppercase transition rounded-xs ${
+                poetsMode === "curated"
+                  ? "bg-ember text-paper shadow-xs"
+                  : "text-ink/80 hover:text-ember"
+              }`}
+            >
+              <UsersIcon className="w-4 h-4" />
+              <span>الرواد المعلمون (Curated &bull; 106)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPoetsMode("dataset");
+                if (datasetPoets.length === 0) {
+                  loadDatasetPoets(1, datasetEraFilter, poetSearchQuery);
+                }
+              }}
+              className={`flex items-center gap-2 px-5 py-2 text-xs sc font-bold uppercase transition rounded-xs ${
+                poetsMode === "dataset"
+                  ? "bg-ember text-paper shadow-xs"
+                  : "text-ink/80 hover:text-ember"
+              }`}
+            >
+              <DatasetIcon className="w-4 h-4" />
+              <span>خزانة الموسوعة (7,167 شاعراً)</span>
+            </button>
+          </div>
         </div>
 
-        {/* Filter bar */}
-        <div className="mt-10 mx-auto max-w-3xl space-y-4">
-          <div className="mx-auto max-w-md">
-            <label className="sc block text-center text-xs" htmlFor="poet-q">
-              Search poet by name, era, or birthplace
-            </label>
-            <div className="relative mt-1">
-              <input
-                id="poet-q"
-                type="search"
-                value={poetSearchQuery}
-                onChange={(e) => {
-                  setPoetSearchQuery(e.target.value);
-                  setVisiblePoetsCount(16);
-                }}
-                className="w-full border border-ink/60 bg-transparent pl-10 pr-10 py-2.5 text-center italic outline-none focus:border-ember"
-                placeholder="Mutanabbi, Shakespeare, Keats, Darwish, Antarah..."
-              />
-              <SearchIcon className="absolute left-3.5 top-3 w-4 h-4 text-ink/50 pointer-events-none" />
-              {poetSearchQuery && (
+        {/* ================= MODE 1: CURATED MASTERS (106) ================= */}
+        {poetsMode === "curated" && (
+          <>
+            {/* Filter bar */}
+            <div className="mt-10 mx-auto max-w-3xl space-y-4">
+              <div className="mx-auto max-w-md">
+                <label className="sc block text-center text-xs" htmlFor="poet-q">
+                  Search curated masters by name, era, or birthplace
+                </label>
+                <div className="relative mt-1">
+                  <input
+                    id="poet-q"
+                    type="search"
+                    value={poetSearchQuery}
+                    onChange={(e) => {
+                      setPoetSearchQuery(e.target.value);
+                      setVisiblePoetsCount(16);
+                    }}
+                    className="w-full border border-ink/60 bg-transparent pl-10 pr-10 py-2.5 text-center italic outline-none focus:border-ember"
+                    placeholder="Mutanabbi, Shakespeare, Keats, Darwish, Antarah..."
+                  />
+                  <SearchIcon className="absolute left-3.5 top-3 w-4 h-4 text-ink/50 pointer-events-none" />
+                  {poetSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPoetSearchQuery("");
+                        setVisiblePoetsCount(16);
+                      }}
+                      className="absolute right-3 top-2.5 text-ink/60 hover:text-ember p-0.5"
+                      title="Clear search"
+                    >
+                      <CloseIcon className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+                {poetSearchQuery && (
+                  <p className="mt-2 text-center text-xs sc text-ember">
+                    Found {filteredPoets.length} matching masters
+                  </p>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <button
+                  className="dbtn"
+                  aria-pressed={selectedLanguage === "all"}
+                  onClick={() => {
+                    setSelectedLanguage("all");
+                    setSelectedEra("all");
+                    setVisiblePoetsCount(16);
+                  }}
+                >
+                  All Traditions ({POETS.length})
+                </button>
+                <button
+                  className="dbtn"
+                  aria-pressed={selectedLanguage === "ar"}
+                  onClick={() => {
+                    setSelectedLanguage("ar");
+                    setSelectedEra("all");
+                    setVisiblePoetsCount(16);
+                  }}
+                >
+                  العربية (Arabic Canon &bull; {arabicPoetsCount})
+                </button>
+                <button
+                  className="dbtn"
+                  aria-pressed={selectedLanguage === "en"}
+                  onClick={() => {
+                    setSelectedLanguage("en");
+                    setSelectedEra("all");
+                    setVisiblePoetsCount(16);
+                  }}
+                >
+                  English Canon &bull; {englishPoetsCount} Masters
+                </button>
+                <a href="#/art" className="dbtn text-ember font-medium">
+                  Art Gallery &rarr;
+                </a>
+              </div>
+
+              {/* Sub-Era Filter Pills */}
+              {selectedLanguage === "en" && (
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                  {ENGLISH_ERAS.map((era) => (
+                    <button
+                      key={era.id}
+                      className={`text-xs py-1 px-3 transition-colors border ${
+                        selectedEra === era.id
+                          ? "bg-ember text-paper border-ember"
+                          : "border-ink/30 hover:border-ember/70 text-ink"
+                      }`}
+                      onClick={() => {
+                        setSelectedEra(era.id);
+                        setVisiblePoetsCount(16);
+                      }}
+                    >
+                      {era.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {selectedLanguage === "ar" && (
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-2" dir="rtl">
+                  {ARABIC_ERAS.map((era) => (
+                    <button
+                      key={era.id}
+                      className={`text-xs py-1 px-3 transition-colors border ${
+                        selectedEra === era.id
+                          ? "bg-ember text-paper border-ember"
+                          : "border-ink/30 hover:border-ember/70 text-ink"
+                      }`}
+                      onClick={() => {
+                        setSelectedEra(era.id);
+                        setVisiblePoetsCount(16);
+                      }}
+                    >
+                      {era.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-12 grid gap-8 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+              {filteredPoets.length > 0 ? (
+                filteredPoets.slice(0, visiblePoetsCount).map((poet) => (
+                  <PoetCard key={poet.slug} poet={poet} />
+                ))
+              ) : (
+                <p className="col-span-full text-center italic py-8">
+                  No poets match your search query. Try another term.
+                </p>
+              )}
+            </div>
+
+            {/* Poets Load More / Pagination Button or Seamless Transition to Dataset */}
+            {visiblePoetsCount < filteredPoets.length ? (
+              <div className="mt-12 text-center flex flex-col items-center gap-3">
+                <button
+                  type="button"
+                  className="dbtn font-bold px-8 py-3 text-xs tracking-wider uppercase transition shadow-sm hover:shadow"
+                  onClick={() => setVisiblePoetsCount((prev) => prev + 16)}
+                >
+                  Load More Masters ({filteredPoets.length - visiblePoetsCount} remaining)
+                </button>
+                <p className="text-xs sc text-ink/70">
+                  Displaying {Math.min(visiblePoetsCount, filteredPoets.length)} of {filteredPoets.length} poets
+                </p>
+              </div>
+            ) : (
+              <div className="mt-16 p-8 border-2 border-gilt/50 bg-amber-950/5 text-center rounded-sm max-w-xl mx-auto space-y-4">
+                <div className="flex justify-center text-ember">
+                  <DatasetIcon className="w-8 h-8" />
+                </div>
+                <h3 className="disp text-2xl text-ink font-bold">
+                  استكشف خزانة شعراء الموسوعة الكبرى
+                </h3>
+                <p className="text-sm italic text-ink/80 leading-relaxed" dir="rtl">
+                  أتممت استعراض الرواد المعلمين (106 شعراء). تحتوي خزانة الموسوعة المستوردة من 
+                  <strong className="text-ember font-mono text-xs mx-1">fuaf24/arabic-poetry-ashaar</strong> 
+                  على أكثر من 7,167 شاعراً و 254,630 قصيدة عبر كافة العصور.
+                </p>
                 <button
                   type="button"
                   onClick={() => {
-                    setPoetSearchQuery("");
-                    setVisiblePoetsCount(16);
+                    setPoetsMode("dataset");
+                    if (datasetPoets.length === 0) {
+                      loadDatasetPoets(1, "all", "");
+                    }
                   }}
-                  className="absolute right-3 top-2.5 text-ink/60 hover:text-ember p-0.5"
-                  title="Clear search"
+                  className="dbtn font-bold px-8 py-3 text-xs tracking-widest uppercase bg-ember text-paper border-ember hover:bg-ember/90 transition shadow"
                 >
-                  <CloseIcon className="w-4 h-4" />
+                  متابعة التصفح في خزانة الموسوعة (7,167 شاعراً) &darr;
                 </button>
-              )}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ================= MODE 2: INFINITE DATASET POETS ARCHIVE (7,167) ================= */}
+        {poetsMode === "dataset" && (
+          <div className="mt-8 space-y-8">
+            {/* Status and Repository Banner */}
+            <div className="max-w-3xl mx-auto p-4 border border-ember/30 bg-amber-950/5 rounded-xs flex flex-wrap items-center justify-between gap-3 text-xs sc">
+              <div className="flex items-center gap-2">
+                <DatasetIcon className="w-4 h-4 text-ember flex-shrink-0" />
+                <span>
+                  مستودع: <strong className="font-mono text-ember">fuaf24/arabic-poetry-ashaar</strong> &bull; 7,167 شاعراً &bull; 254,630 قصيدة
+                </span>
+              </div>
+              <span className="text-ink/60">بث متواصل وغير منتهٍ</span>
             </div>
-            {poetSearchQuery && (
-              <p className="mt-2 text-center text-xs sc text-ember">
-                Found {filteredPoets.length} matching masters
-              </p>
+
+            {/* Dataset Search Bar */}
+            <div className="mx-auto max-w-md">
+              <label className="sc block text-center text-xs" htmlFor="dataset-poet-q">
+                بحث فوري في خزانة شعراء الموسوعة (7,167 شاعراً)
+              </label>
+              <div className="relative mt-1">
+                <input
+                  id="dataset-poet-q"
+                  type="search"
+                  value={poetSearchQuery}
+                  onChange={(e) => {
+                    const q = e.target.value;
+                    setPoetSearchQuery(q);
+                    loadDatasetPoets(1, datasetEraFilter, q);
+                  }}
+                  className="w-full border border-ink/60 bg-transparent pl-10 pr-10 py-2.5 text-center italic outline-none focus:border-ember"
+                  placeholder="ابحث بالاسم: المتنبي، الشريف الرضي، ابن الرومي، شوقي..."
+                />
+                <SearchIcon className="absolute left-3.5 top-3 w-4 h-4 text-ink/50 pointer-events-none" />
+                {poetSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPoetSearchQuery("");
+                      loadDatasetPoets(1, datasetEraFilter, "");
+                    }}
+                    className="absolute right-3 top-2.5 text-ink/60 hover:text-ember p-0.5"
+                    title="مسح البحث"
+                  >
+                    <CloseIcon className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Dataset Era Filter Pills */}
+            <div className="flex flex-wrap items-center justify-center gap-2 max-w-4xl mx-auto" dir="rtl">
+              {DATASET_ERAS.map((era) => (
+                <button
+                  key={era.id}
+                  className={`text-xs py-1.5 px-3.5 transition-colors border rounded-xs ${
+                    datasetEraFilter === era.id
+                      ? "bg-ember text-paper border-ember font-medium"
+                      : "border-ink/25 hover:border-ember/70 text-ink/80"
+                  }`}
+                  onClick={() => {
+                    setDatasetEraFilter(era.id);
+                    loadDatasetPoets(1, era.id, poetSearchQuery);
+                  }}
+                >
+                  {era.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Dataset Poets Grid */}
+            {datasetPoetsLoading && datasetPoets.length === 0 ? (
+              <div className="py-24 text-center space-y-3">
+                <div className="inline-block animate-spin text-ember">
+                  <SparkIcon className="w-8 h-8" />
+                </div>
+                <p className="sc text-xs uppercase tracking-widest text-ink/70">
+                  جارٍ استحضار شعراء الموسوعة من مستودع البيانات...
+                </p>
+              </div>
+            ) : datasetPoets.length > 0 ? (
+              <div className="grid gap-8 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                {datasetPoets.map((poet) => (
+                  <DatasetPoetCard
+                    key={poet.id}
+                    poet={poet}
+                    onOpenDiwan={openDatasetPoetDiwan}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 italic text-ink/70">
+                لم يتم العثور على شعراء يطابقون عبارة البحث في هذا التصنيف. جرّب عبارة أخرى.
+              </div>
+            )}
+
+            {/* Infinite Load More Dataset Poets Button */}
+            {datasetPoetsHasMore && datasetPoets.length > 0 && (
+              <div className="mt-14 text-center flex flex-col items-center gap-3">
+                <button
+                  type="button"
+                  disabled={datasetPoetsLoading}
+                  onClick={() => loadDatasetPoets(datasetPoetsPage + 1, datasetEraFilter, poetSearchQuery, true)}
+                  className="dbtn font-bold px-10 py-3.5 text-xs tracking-wider uppercase transition shadow-sm hover:shadow"
+                >
+                  {datasetPoetsLoading ? (
+                    <span className="flex items-center gap-2">
+                      <SparkIcon className="w-4 h-4 animate-spin" />
+                      <span>جارٍ جلب دفعة جديدة من خزانة الموسوعة...</span>
+                    </span>
+                  ) : (
+                    <span>جلب المزيد من شعراء الموسوعة (دفعة تالية) &darr;</span>
+                  )}
+                </button>
+                <p className="text-xs sc text-ink/70">
+                  تم استعراض {datasetPoets.length} شاعراً من إجمالي 7,167 شاعراً في خزانة fuaf24
+                </p>
+              </div>
             )}
           </div>
+        )}
 
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <button
-              className="dbtn"
-              aria-pressed={selectedLanguage === "all"}
-              onClick={() => {
-                setSelectedLanguage("all");
-                setSelectedEra("all");
-                setVisiblePoetsCount(16);
-              }}
+        {/* ================= DATASET POET DIWAN MODAL ================= */}
+        {activeDatasetPoet && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/70 backdrop-blur-sm"
+            onClick={() => {
+              setActiveDatasetPoet(null);
+              setDatasetPoetPoems([]);
+            }}
+          >
+            <div
+              className="relative bg-paper border-2 border-gilt max-w-3xl w-full max-h-[90vh] flex flex-col rounded-sm shadow-2xl p-6 overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
             >
-              All Traditions ({POETS.length})
-            </button>
-            <button
-              className="dbtn"
-              aria-pressed={selectedLanguage === "ar"}
-              onClick={() => {
-                setSelectedLanguage("ar");
-                setSelectedEra("all");
-                setVisiblePoetsCount(16);
-              }}
-            >
-              العربية (Arabic Canon &bull; {arabicPoetsCount})
-            </button>
-            <button
-              className="dbtn"
-              aria-pressed={selectedLanguage === "en"}
-              onClick={() => {
-                setSelectedLanguage("en");
-                setSelectedEra("all");
-                setVisiblePoetsCount(16);
-              }}
-            >
-              English Canon &bull; {englishPoetsCount} Masters
-            </button>
-            <a href="#/art" className="dbtn text-ember font-medium">
-              Art Gallery &rarr;
-            </a>
-          </div>
-
-          {/* Sub-Era Filter Pills */}
-          {selectedLanguage === "en" && (
-            <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-              {ENGLISH_ERAS.map((era) => (
+              {/* Header */}
+              <div className="flex items-start justify-between border-b border-ink/15 pb-4 mb-4">
+                <div className="text-right flex-1 pr-4" dir="rtl">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="sc text-xs text-ember font-bold uppercase bg-amber-950/10 px-2 py-0.5 border border-ember/20">
+                      {activeDatasetPoet.era}
+                    </span>
+                    {activeDatasetPoet.location && (
+                      <span className="sc text-xs text-ink/70">&bull; {activeDatasetPoet.location}</span>
+                    )}
+                  </div>
+                  <h2 className="disp text-3xl font-bold text-ink">
+                    ديوان {activeDatasetPoet.name}
+                  </h2>
+                  <p className="mt-2 text-xs italic text-ink/80 leading-relaxed bg-amber-950/5 p-3 rounded-xs border border-ink/10">
+                    {activeDatasetPoet.desc}
+                  </p>
+                </div>
                 <button
-                  key={era.id}
-                  className={`text-xs py-1 px-3 transition-colors border ${
-                    selectedEra === era.id
-                      ? "bg-ember text-paper border-ember"
-                      : "border-ink/30 hover:border-ember/70 text-ink"
-                  }`}
+                  type="button"
                   onClick={() => {
-                    setSelectedEra(era.id);
-                    setVisiblePoetsCount(16);
+                    setActiveDatasetPoet(null);
+                    setDatasetPoetPoems([]);
                   }}
+                  className="text-ink/60 hover:text-ink p-1 rounded hover:bg-amber-950/10 transition flex-shrink-0"
+                  aria-label="إغلاق"
                 >
-                  {era.label}
+                  <CloseIcon className="w-5 h-5" />
                 </button>
-              ))}
-            </div>
-          )}
+              </div>
 
-          {selectedLanguage === "ar" && (
-            <div className="flex flex-wrap items-center justify-center gap-2 pt-2" dir="rtl">
-              {ARABIC_ERAS.map((era) => (
+              {/* Poems Content */}
+              <div className="overflow-y-auto flex-1 space-y-4 pr-1">
+                {datasetPoetPoemsLoading && datasetPoetPoems.length === 0 ? (
+                  <div className="py-16 text-center space-y-3">
+                    <div className="inline-block animate-spin text-ember">
+                      <SparkIcon className="w-6 h-6" />
+                    </div>
+                    <p className="sc text-xs uppercase tracking-wider text-ink/70">
+                      جارٍ جلب قصائد الشاعر من خزانة الموسوعة...
+                    </p>
+                  </div>
+                ) : datasetPoetPoems.length === 0 ? (
+                  <div className="py-12 text-center text-ink/70 italic" dir="rtl">
+                    لم يُعثر على قصائد مباشرة في هذا الموضع. يمكنك محاولة تصفح الشاعر في مستودع fuaf24.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between text-xs sc text-ink/70 px-1 border-b border-ink/10 pb-2">
+                      <span>{datasetPoetPoems.length} قصيدة محملة من ديوان الشاعر</span>
+                      <span>مستودع: fuaf24/arabic-poetry-ashaar</span>
+                    </div>
+
+                    {datasetPoetPoems.map((poem, pIdx) => (
+                      <div
+                        key={poem.id || pIdx}
+                        className="border border-ink/15 bg-paper p-4 rounded-xs hover:border-ember/40 transition shadow-xs text-right"
+                        dir="rtl"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="sc text-[11px] text-ember font-medium bg-amber-950/10 px-2 py-0.5">
+                              بحر {poem.meter}
+                            </span>
+                            <span className="sc text-[11px] text-ink/60">
+                              {poem.totalVerses} شطر
+                            </span>
+                          </div>
+                          <h4 className="disp text-lg font-bold text-ink">
+                            {poem.title}
+                          </h4>
+                        </div>
+
+                        {/* Verses couplets preview */}
+                        <div className="space-y-2 my-3 pr-2 border-r-2 border-ember/30 text-sm leading-relaxed">
+                          {poem.couplets.slice(0, 6).map((couplet, cIdx) => {
+                            const parts = couplet.split("||");
+                            return (
+                              <div key={cIdx} className="py-0.5">
+                                {parts.length === 2 ? (
+                                  <>
+                                    <span className="font-medium text-ink">{parts[0].trim()}</span>
+                                    <span className="text-ember mx-2 text-xs">&#10059;</span>
+                                    <span className="font-medium text-ink/90">{parts[1].trim()}</span>
+                                  </>
+                                ) : (
+                                  <span>{couplet}</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                          {poem.couplets.length > 6 && (
+                            <p className="text-xs italic text-ink/60 pt-1">
+                              ... ومجموعها {poem.totalVerses / 2 || poem.totalVerses} بيت شعري
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Card Actions */}
+                        <div className="pt-2 border-t border-ink/10 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setActiveCloudPoemModal({
+                                id: poem.id,
+                                title: poem.title,
+                                poet: poem.poet,
+                                meter: poem.meter,
+                                era: poem.era,
+                                theme: poem.theme,
+                                poetBio: poem.poetBio || "",
+                                poetUrl: undefined,
+                                poemUrl: poem.url,
+                                verses: poem.verses,
+                                couplets: poem.couplets,
+                                totalVerses: poem.totalVerses,
+                              })
+                            }
+                            className="dbtn text-xs py-1 px-3 inline-flex items-center gap-1 hover:text-ember"
+                          >
+                            <span>قراءة القصيدة كاملة</span>
+                            <span>&larr;</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyPoem(poem.couplets.join("\n"), poem.title)}
+                            className="text-xs text-ink/70 hover:text-ember inline-flex items-center gap-1"
+                            title="نسخ أبيات القصيدة"
+                          >
+                            <CopyIcon className="w-3.5 h-3.5" />
+                            <span>نسخ</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Load more poems of this poet */}
+                    {datasetPoetPoemsHasMore && (
+                      <div className="pt-4 text-center">
+                        <button
+                          type="button"
+                          disabled={datasetPoetPoemsLoading}
+                          onClick={() => loadMorePoetPoems(activeDatasetPoet)}
+                          className="dbtn text-xs px-6 py-2 tracking-wider uppercase font-semibold"
+                        >
+                          {datasetPoetPoemsLoading ? "جارٍ التحميل..." : "تحميل المزيد من قصائد الشاعر"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="border-t border-ink/15 pt-3 mt-3 flex items-center justify-between text-xs sc text-ink/70">
+                <span>مستودع البيانات: fuaf24/arabic-poetry-ashaar</span>
                 <button
-                  key={era.id}
-                  className={`text-xs py-1 px-3 transition-colors border ${
-                    selectedEra === era.id
-                      ? "bg-ember text-paper border-ember"
-                      : "border-ink/30 hover:border-ember/70 text-ink"
-                  }`}
+                  type="button"
                   onClick={() => {
-                    setSelectedEra(era.id);
-                    setVisiblePoetsCount(16);
+                    setActiveDatasetPoet(null);
+                    setDatasetPoetPoems([]);
                   }}
+                  className="dbtn text-xs py-1 px-4"
                 >
-                  {era.label}
+                  إغلاق النافذة
                 </button>
-              ))}
+              </div>
             </div>
-          )}
-        </div>
-
-        <div className="mt-12 grid gap-8 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-          {filteredPoets.length > 0 ? (
-            filteredPoets.slice(0, visiblePoetsCount).map((poet) => (
-              <PoetCard key={poet.slug} poet={poet} />
-            ))
-          ) : (
-            <p className="col-span-full text-center italic py-8">
-              No poets match your search query. Try another term.
-            </p>
-          )}
-        </div>
-
-        {/* Poets Load More / Pagination Button */}
-        {visiblePoetsCount < filteredPoets.length && (
-          <div className="mt-12 text-center flex flex-col items-center gap-3">
-            <button
-              type="button"
-              className="dbtn font-bold px-8 py-3 text-xs tracking-wider uppercase transition shadow-sm hover:shadow"
-              onClick={() => setVisiblePoetsCount((prev) => prev + 16)}
-            >
-              Load More Masters ({filteredPoets.length - visiblePoetsCount} remaining)
-            </button>
-            <p className="text-xs sc text-ink/70">
-              Displaying {Math.min(visiblePoetsCount, filteredPoets.length)} of {filteredPoets.length} poets
-            </p>
           </div>
         )}
       </section>

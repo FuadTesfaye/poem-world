@@ -195,3 +195,110 @@ export async function fetchFuadCorpusStream(
     return null;
   }
 }
+
+export interface DatasetPoetItem {
+  id: string;
+  name: string;
+  era: string;
+  desc: string;
+  location?: string;
+  startOffset: number;
+  samplePoemTitle?: string;
+  samplePoemMeter?: string;
+  sampleCouplet?: string;
+  poemCount?: number;
+  url?: string;
+  source: "registry" | "stream";
+}
+
+export interface DatasetPoetsResponse {
+  source: string;
+  status: string;
+  totalPoets: number;
+  page: number;
+  limit: number;
+  eraFilter: string;
+  search: string;
+  poets: DatasetPoetItem[];
+  hasMore: boolean;
+  message?: string;
+}
+
+export interface DatasetPoetPoem {
+  id: string;
+  title: string;
+  poet: string;
+  poetBio?: string;
+  era: string;
+  meter: string;
+  theme: string;
+  verses: string[];
+  couplets: string[];
+  totalVerses: number;
+  url?: string;
+  rowIdx: number;
+}
+
+export interface DatasetPoetPoemsResponse {
+  source: string;
+  status: string;
+  poet: string;
+  offset: number;
+  page: number;
+  limit: number;
+  returned: number;
+  poems: DatasetPoetPoem[];
+  hasMore: boolean;
+  message?: string;
+}
+
+/**
+ * Streams paginated poets from fuaf24/arabic-poetry-ashaar (7,167 poets)
+ */
+export async function fetchDatasetPoetsStream(
+  page: number = 1,
+  limit: number = 16,
+  era: string = "all",
+  search: string = ""
+): Promise<DatasetPoetsResponse | null> {
+  try {
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+      era,
+      search,
+    });
+    const res = await fetch(`/api/archive/fuad-poets?${params.toString()}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.error("fetchDatasetPoetsStream error:", err);
+    return null;
+  }
+}
+
+/**
+ * Fetches all poems of a dataset poet from fuaf24/arabic-poetry-ashaar
+ */
+export async function fetchPoetPoemsFromDataset(
+  poet: string,
+  offset: number = 0,
+  page: number = 1,
+  limit: number = 15
+): Promise<DatasetPoetPoemsResponse | null> {
+  try {
+    const params = new URLSearchParams({
+      poet,
+      offset: String(offset),
+      page: String(page),
+      limit: String(limit),
+    });
+    const res = await fetch(`/api/archive/fuad-poet-poems?${params.toString()}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.error("fetchPoetPoemsFromDataset error:", err);
+    return null;
+  }
+}
+
