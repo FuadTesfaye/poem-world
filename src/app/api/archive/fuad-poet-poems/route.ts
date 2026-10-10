@@ -37,16 +37,144 @@ interface HFApiResponse {
   num_rows_per_page: number;
 }
 
-// In-memory cache for ultra-fast response
+import poetsOffsetsMap from "@/data/poets/poetsOffsetsMap.json";
+
+function normalizeAr(str: string): string {
+  return (str || "")
+    .replace(/[ًٌٍَُِّْـ]/g, "")
+    .replace(/[إأآ]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/ى/g, "ي")
+    .trim();
+}
+
+const SLUG_TO_AR: Record<string, string> = {
+  "al-mutanabbi": "المتنبي",
+  "imru-al-qais": "امرؤ القيس",
+  "antarah-ibn-shaddad": "عنترة بن شداد",
+  "tarafa-ibn-al-abd": "طرفة بن العبد",
+  "zuhayr-ibn-abi-sulma": "زهير بن أبي سلمى",
+  "labid-ibn-rabiah": "لبيد بن ربيعة",
+  "amr-ibn-kulthum": "عمرو بن كلثوم",
+  "al-harith-ibn-hilliza": "الحارث بن حلزة",
+  "al-nabigha-al-dhubyani": "النابغة الذبياني",
+  "al-a-sha": "الأعشى",
+  "al-khansa": "الخنساء",
+  "hassan-ibn-thabit": "حسان بن ثابت",
+  "ka-b-ibn-zuhayr": "كعب بن زهير",
+  "al-hutay-ah": "الحطيئة",
+  "jamil-buthayna": "جميل بثينة",
+  "qays-ibn-al-mulawwah": "مجنون ليلى",
+  "kuthayyir-azza": "كثير عزة",
+  "al-akhtal": "الأخطل",
+  "al-farazdaq": "الفرزدق",
+  "jarir": "جرير",
+  "dhu-al-rummah": "ذو الرمة",
+  "umar-ibn-abi-rabi-ah": "عمر بن أبي ربيعة",
+  "bashshar-ibn-burd": "بشار بن برد",
+  "abu-nuwas": "أبو نواس",
+  "abu-al-atahiyah": "أبو العتاهية",
+  "muslim-ibn-al-walid": "صريع الغواني",
+  "abu-tammam": "أبو تمام",
+  "al-buhturi": "البحتري",
+  "ibn-al-rumi": "ابن الرومي",
+  "ibn-al-mu-tazz": "ابن المعتز",
+  "al-sharif-al-radi": "الشريف الرضي",
+  "al-ma-arri": "أبو العلاء المعري",
+  "al-hallaj": "الحلاج",
+  "ibn-al-farid": "ابن الفارض",
+  "ibn-arabi": "محيي الدين بن عربي",
+  "al-busiri": "البوصيري",
+  "ibn-khafajah": "ابن خفاجة",
+  "ibn-zaydun": "ابن زيدون",
+  "wallada-bint-al-mustakfi": "ولادة بنت المستكفي",
+  "lisan-al-din-ibn-al-khatib": "لسان الدين بن الخطيب",
+  "ibn-zamrak": "ابن زمرك",
+  "ahmad-shawqi": "أحمد شوقي",
+  "hafiz-ibrahim": "حافظ ابراهيم",
+  "khalil-mutran": "خليل مطران",
+  "maruf-al-rusafi": "معروف الرصافي",
+  "jamil-sidqi-al-zahawi": "جميل صدقي الزهاوي",
+  "abu-al-qasim-al-shabbi": "أبو القاسم الشابي",
+  "badr-shakir-al-sayyab": "بدر شاكر السياب",
+  "nazik-al-mala-ika": "نازك الملائكة",
+  "nizar-qabbani": "نزار قباني",
+  "mahmoud-darwish": "محمود درويش",
+  "adonis": "أدونيس",
+  "al-jawahiri": "محمد مهدي الجواهري",
+  "amal-dunqul": "أمل دنقل",
+  "salah-abd-al-sabur": "صلاح عبد الصبور",
+  "fadwa-tuqan": "فدوى طوقان",
+  "samih-al-qasim": "سميح القاسم",
+  "elias-abu-shabaki": "إلياس أبو شبكة",
+  "mikhail-naimy": "ميخائيل نعيمة",
+  "kahlil-gibran": "جبران خليل جبران",
+  "iliya-abu-madi": "إيليا أبو ماضي"
+};
+
+function findPoetOffset(poetName: string): { start: number; count: number; matchedName: string } | null {
+  if (!poetName) return null;
+  const map = poetsOffsetsMap as Record<string, { start: number; count: number }>;
+  
+  // 1. Resolve slug if passed
+  const query = SLUG_TO_AR[poetName.toLowerCase().trim()] || poetName.trim();
+
+  // 2. Exact match in map
+  if (map[query]) {
+    return { ...map[query], matchedName: query };
+  }
+
+  // 3. Exact normalized match
+  const normQuery = normalizeAr(query);
+  for (const [k, v] of Object.entries(map)) {
+    if (normalizeAr(k) === normQuery) {
+      return { ...v, matchedName: k };
+    }
+  }
+
+  // 4. Candidates where normalized names overlap, sorted by largest count (complete diwan)
+  const candidates: Array<{ name: string; start: number; count: number }> = [];
+  for (const [k, v] of Object.entries(map)) {
+    const normK = normalizeAr(k);
+    if (normK.includes(normQuery) || normQuery.includes(normK)) {
+      candidates.push({ name: k, ...v });
+    }
+  }
+
+  // Also strip common prefixes like أبو، ابن، الشيخ، الأمير، الشريف
+  const cleanQuery = normQuery.replace(/^(ابو|ابن|الشيخ|الامير|الشاعر|الشريف)\s+/, "").trim();
+  if (cleanQuery.length > 2) {
+    for (const [k, v] of Object.entries(map)) {
+      const normK = normalizeAr(k);
+      if (normK.includes(cleanQuery) || cleanQuery.includes(normK)) {
+        if (!candidates.some((c) => c.name === k)) {
+          candidates.push({ name: k, ...v });
+        }
+      }
+    }
+  }
+
+  if (candidates.length > 0) {
+    candidates.sort((a, b) => b.count - a.count);
+    return { start: candidates[0].start, count: candidates[0].count, matchedName: candidates[0].name };
+  }
+
+  return null;
+}
+
 const memoryCache = new Map<string, { data: unknown; timestamp: number }>();
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const poet = (searchParams.get("poet") || "").trim();
-  const baseOffset = Math.max(0, parseInt(searchParams.get("offset") || "0", 10));
   const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
-  const limit = Math.min(40, Math.max(1, parseInt(searchParams.get("limit") || "15", 10)));
+  const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") || "15", 10)));
+
+  // Resolve exact start row from 7,152 poets dataset map
+  const poetInfo = findPoetOffset(poet);
+  const baseOffset = poetInfo ? poetInfo.start : Math.max(0, parseInt(searchParams.get("offset") || "0", 10));
+  const totalPoemsCount = poetInfo ? poetInfo.count : 100;
 
   const fetchOffset = baseOffset + (page - 1) * limit;
   const cacheKey = `dataset_poet_poems_${poet}_off${fetchOffset}_lim${limit}`;
@@ -61,8 +189,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Request a few extra rows so we can filter accurately by poet name if contiguous
-  const fetchLimit = Math.min(100, limit + 10);
+  const fetchLimit = limit;
   const hfUrl = `https://datasets-server.huggingface.co/rows?dataset=fuaf24/arabic-poetry-ashaar&config=default&split=train&offset=${fetchOffset}&limit=${fetchLimit}`;
 
   try {
@@ -105,11 +232,14 @@ export async function GET(request: NextRequest) {
 
     const rawRows = data.rows || [];
 
-    // Filter rows by poet if specified, or take rows at this offset
-    const matchingRows = poet
+    // Filter rows by poet using matchedName from index or fallback
+    const targetName = poetInfo ? poetInfo.matchedName : poet;
+    const matchingRows = targetName
       ? rawRows.filter((item) => {
           const rowPoet = (item.row["poet name"] || "").trim();
-          return rowPoet.includes(poet) || poet.includes(rowPoet);
+          const normRow = normalizeAr(rowPoet);
+          const normTarget = normalizeAr(targetName);
+          return normRow.includes(normTarget) || normTarget.includes(normRow);
         })
       : rawRows;
 
@@ -133,7 +263,7 @@ export async function GET(request: NextRequest) {
         id: `ashaar-${item.row_idx}`,
         rowIdx: item.row_idx,
         title: (r["poem title"] || "قصيدة بدون عنوان").trim(),
-        poet: (r["poet name"] || poet || "شاعر").trim(),
+        poet: (r["poet name"] || targetName || poet || "شاعر").trim(),
         poetBio: (r["poet description"] || "").trim(),
         era: (r["poet era"] && r["poet era"] !== "null" ? r["poet era"] : "العصر الذهبي").trim(),
         meter: (r["poem meter"] || "غير محدد").replace(/^بحر\s+/, "").trim(),
@@ -148,13 +278,14 @@ export async function GET(request: NextRequest) {
     const payload = {
       source: "fuaf24/arabic-poetry-ashaar",
       status: "success",
-      poet: poet || poems[0]?.poet || "شاعر",
+      poet: poetInfo?.matchedName || poet || poems[0]?.poet || "شاعر",
       offset: fetchOffset,
       page,
       limit,
+      totalPoetPoems: totalPoemsCount,
       returned: poems.length,
       poems,
-      hasMore: poems.length === limit,
+      hasMore: page * limit < totalPoemsCount,
     };
 
     memoryCache.set(cacheKey, { data: payload, timestamp: Date.now() });

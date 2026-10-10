@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   POETS,
   POEMS,
@@ -128,6 +128,45 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
   const [datasetPoetPoemsPage, setDatasetPoetPoemsPage] = useState<number>(1);
   const [datasetPoetPoemsHasMore, setDatasetPoetPoemsHasMore] = useState<boolean>(true);
 
+  // Complete Poet Diwan State (like aldiwan.net)
+  const [poetDiwanPoems, setPoetDiwanPoems] = useState<DatasetPoetPoem[]>([]);
+  const [poetDiwanLoading, setPoetDiwanLoading] = useState<boolean>(false);
+  const [poetDiwanPage, setPoetDiwanPage] = useState<number>(1);
+  const [poetDiwanTotalCount, setPoetDiwanTotalCount] = useState<number>(0);
+  const [poetDiwanHasMore, setPoetDiwanHasMore] = useState<boolean>(false);
+  const [poetDiwanSearchQuery, setPoetDiwanSearchQuery] = useState<string>("");
+  const [poetDiwanMeterFilter, setPoetDiwanMeterFilter] = useState<string>("all");
+
+  async function loadPoetDiwan(slugOrName: string, pageToLoad: number = 1) {
+    setPoetDiwanLoading(true);
+    try {
+      const p = getPoet(slugOrName);
+      const queryName = p ? (p.ar || p.name) : decodeURIComponent(slugOrName);
+      const res = await fetchPoetPoemsFromDataset(queryName, undefined, pageToLoad, 20);
+      if (res && res.poems) {
+        setPoetDiwanPoems(res.poems);
+        setPoetDiwanPage(pageToLoad);
+        setPoetDiwanTotalCount(res.totalPoetPoems || res.poems.length);
+        setPoetDiwanHasMore(res.hasMore);
+      }
+    } catch (err) {
+      console.error("Failed to load poet diwan:", err);
+    } finally {
+      setPoetDiwanLoading(false);
+    }
+  }
+
+  function handlePoetDiwanPageChange(newPage: number) {
+    if (!routeParam) return;
+    loadPoetDiwan(routeParam, newPage);
+    if (typeof window !== "undefined") {
+      const el = document.getElementById("poet-diwan-section");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+  }
+
   function scrollToPoetsTop() {
     if (typeof window !== "undefined") {
       const el = document.getElementById("poets-catalog-top");
@@ -244,6 +283,17 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
 
   const routeType = routeParts[0] || "poems";
   const routeParam = routeParts[1];
+
+  useEffect(() => {
+    if (routeType === "poet" && routeParam) {
+      setPoetDiwanPage(1);
+      setPoetDiwanSearchQuery("");
+      setPoetDiwanMeterFilter("all");
+      setPoetDiwanPoems([]);
+      setPoetDiwanTotalCount(0);
+      loadPoetDiwan(routeParam, 1);
+    }
+  }, [routeType, routeParam]);
 
   // Filtered poems for poems catalog
   const filteredPoems = useMemo(() => {
@@ -906,22 +956,56 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
     const poetPoems = getPoemsByPoet(p.slug);
     const customBg = p.imageSrc ? { backgroundImage: `url(${p.imageSrc})` } : {};
 
+    const uniqueMeters = Array.from(
+      new Set(
+        poetDiwanPoems
+          .map((item) => item.meter)
+          .filter((m) => m && m !== "غير محدد" && m !== "all")
+      )
+    );
+
+    const filteredDiwanPoems = poetDiwanPoems.filter((item) => {
+      if (poetDiwanMeterFilter !== "all" && item.meter !== poetDiwanMeterFilter) {
+        return false;
+      }
+      if (poetDiwanSearchQuery.trim()) {
+        const q = poetDiwanSearchQuery.trim().toLowerCase();
+        const titleMatch = item.title.toLowerCase().includes(q);
+        const coupletMatch = item.couplets.some((c) => c.toLowerCase().includes(q));
+        if (!titleMatch && !coupletMatch) return false;
+      }
+      return true;
+    });
+
+    const cleanInitial = (p.ar || p.name).replace(/^(ال|أبو\s+|ابن\s+|أمير\s+)/, "").slice(0, 1) || "ش";
+
     return (
       <>
         <section className="grid items-center gap-10 px-[4vw] pt-10 md:grid-cols-[.8fr_1.2fr]">
           <div className="mx-auto w-full max-w-[420px]">
-            <div className="gilt">
+            {p.imageSrc ? (
+              <div className="gilt">
+                <div
+                  className={`dpic ${p.img} aspect-[4/5]`}
+                  style={{
+                    backgroundPosition: p.pos,
+                    backgroundSize: "cover",
+                    ...customBg,
+                  }}
+                  role="img"
+                  aria-label={`Portrait of ${p.name}`}
+                />
+              </div>
+            ) : (
               <div
-                className={`dpic ${p.img} aspect-[4/5]`}
-                style={{
-                  backgroundPosition: p.pos,
-                  backgroundSize: "cover",
-                  ...customBg,
-                }}
-                role="img"
-                aria-label={`Portrait of ${p.name}`}
-              />
-            </div>
+                className="clip oval mx-auto h-56 w-56 overflow-hidden flex items-center justify-center border-2 border-gilt/80 bg-[#f7efe0] dark:bg-[#1f140c]"
+                style={{ boxShadow: "0 0 0 4px #9a6b1f, 0 0 0 8px #34190a" }}
+              >
+                <span className="disp text-7xl font-bold text-ember select-none font-serif pt-1">
+                  {cleanInitial}
+                </span>
+              </div>
+            )}
           </div>
           <div>
             <nav className="sc text-xs">
@@ -961,6 +1045,18 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
                 </span>
               ))}
             </div>
+
+            {(p.language === "ar" || poetDiwanTotalCount > 0 || poetDiwanPoems.length > 0) && (
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <a
+                  href="#poet-diwan-section"
+                  className="dbtn text-xs py-2 px-5 font-bold inline-flex items-center gap-2 hover:border-ember"
+                >
+                  <BookIcon className="w-4 h-4 text-ember" />
+                  <span>تصفح ديوان الشاعر الكامل ({poetDiwanTotalCount || poetDiwanPoems.length || "..."} قصيدة) &darr;</span>
+                </a>
+              </div>
+            )}
           </div>
         </section>
 
@@ -1002,22 +1098,244 @@ export default function Diwan({ routeParts, hidden = false }: DiwanProps) {
           </section>
         )}
 
-        <section className="px-[4vw]">
-          <div className="dorn mx-auto max-w-[70vw]">
-            <span className="disp text-2xl">Poems by {p.name} ({poetPoems.length})</span>
-          </div>
-          {poetPoems.length > 0 ? (
-            <div className="mt-10 grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
+        {/* Curated In-Repo Works (if any exist) */}
+        {poetPoems.length > 0 && (
+          <section className="px-[4vw] pb-12">
+            <div className="dorn mx-auto max-w-[70vw]">
+              <span className="disp text-2xl">
+                {p.language === "ar"
+                  ? `الروائع المختارة والمحققة (${poetPoems.length})`
+                  : `Poems by ${p.name} (${poetPoems.length})`}
+              </span>
+            </div>
+            <div className="mt-8 grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
               {poetPoems.map((m) => (
                 <PoemCard key={m.slug} poem={m} />
               ))}
             </div>
-          ) : (
-            <p className="mt-8 text-center italic opacity-80">
-              More masterworks by this author are being illuminated into the archive.
-            </p>
-          )}
-        </section>
+          </section>
+        )}
+
+        {/* Complete Diwan Section (for Arabic and Dataset Poets - aldiwan.net style) */}
+        {(p.language === "ar" || poetDiwanPoems.length > 0 || poetDiwanTotalCount > 0 || poetDiwanLoading) && (
+          <section id="poet-diwan-section" className="px-[4vw] pt-10 pb-20 border-t border-ink/15">
+            <div className="max-w-6xl mx-auto">
+              {/* Section Header */}
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-ink/20">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="sc text-xs text-ember font-bold uppercase tracking-wider bg-amber-950/10 px-2.5 py-0.5 border border-ember/25">
+                      خزانة الموسوعة الكاملة
+                    </span>
+                    {poetDiwanTotalCount > 0 && (
+                      <span className="sc text-xs text-ink/80 font-bold bg-amber-950/5 px-2.5 py-0.5 border border-ink/10">
+                        {poetDiwanTotalCount} قصيدة في الديوان
+                      </span>
+                    )}
+                  </div>
+                  <h2 className="ar text-[clamp(2.4rem,4.5vw,3.8rem)] font-bold text-ink leading-tight" dir="rtl">
+                    ديوان {p.ar || p.name} الكامل
+                  </h2>
+                  <p className="mt-1 text-sm italic text-ink/75 leading-relaxed" dir="rtl">
+                    تصفح كافة قصائد وروائع الشاعر المحفوظة ومبوبة حسب البحر والترتيب
+                  </p>
+                </div>
+
+                {/* Diwan Search */}
+                <div className="w-full md:w-auto min-w-[280px]">
+                  <div className="relative">
+                    <SearchIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink/50" />
+                    <input
+                      type="search"
+                      placeholder="ابحث في ديوان الشاعر (بالعنوان أو مطلع البيت)..."
+                      value={poetDiwanSearchQuery}
+                      onChange={(e) => setPoetDiwanSearchQuery(e.target.value)}
+                      dir="rtl"
+                      className="w-full pr-9 pl-3 py-2 text-sm bg-paper border border-ink/20 focus:border-ember focus:outline-hidden rounded-xs placeholder:text-ink/40 text-ink"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Meter Filter Tabs */}
+              {uniqueMeters.length > 1 && (
+                <div className="mt-4 flex flex-wrap items-center gap-1.5" dir="rtl">
+                  <span className="sc text-xs text-ink/60 font-semibold ml-2">بحور الشعر:</span>
+                  <button
+                    type="button"
+                    onClick={() => setPoetDiwanMeterFilter("all")}
+                    className={`text-xs px-3 py-1 rounded-xs transition ${
+                      poetDiwanMeterFilter === "all"
+                        ? "bg-ember text-paper font-bold"
+                        : "bg-amber-950/5 text-ink/75 hover:bg-amber-950/10 border border-ink/15"
+                    }`}
+                  >
+                    الكل ({poetDiwanPoems.length})
+                  </button>
+                  {uniqueMeters.map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setPoetDiwanMeterFilter(m)}
+                      className={`text-xs px-3 py-1 rounded-xs transition ${
+                        poetDiwanMeterFilter === m
+                          ? "bg-ember text-paper font-bold"
+                          : "bg-amber-950/5 text-ink/75 hover:bg-amber-950/10 border border-ink/15"
+                      }`}
+                    >
+                      بحر {m}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Content / Poems Grid */}
+              {poetDiwanLoading ? (
+                <div className="py-24 text-center space-y-3">
+                  <div className="inline-block animate-spin text-ember">
+                    <SparkIcon className="w-8 h-8" />
+                  </div>
+                  <p className="ar text-xl text-ink/80 font-medium" dir="rtl">
+                    جارٍ استحضار ديوان {p.ar || p.name} من خزانة الموسوعة...
+                  </p>
+                  <p className="text-xs text-ink/50 italic">
+                    جلب الأبيات والقصائد من مستودع fuaf24/arabic-poetry-ashaar
+                  </p>
+                </div>
+              ) : filteredDiwanPoems.length === 0 ? (
+                <div className="py-16 text-center text-ink/70 italic border border-dashed border-ink/20 rounded-xs mt-6" dir="rtl">
+                  {poetDiwanSearchQuery || poetDiwanMeterFilter !== "all" ? (
+                    <>
+                      <p className="text-base">لم يُعثر على قصائد تطابق معايير البحث الحالية في الديوان.</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPoetDiwanSearchQuery("");
+                          setPoetDiwanMeterFilter("all");
+                        }}
+                        className="mt-3 text-xs text-ember underline font-medium"
+                      >
+                        إعادة ضبط الفلاتر
+                      </button>
+                    </>
+                  ) : (
+                    <p className="text-base">
+                      قصائد هذا الشاعر قيد الإضاءة والتحقيق في خزانة الموسوعة.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-2">
+                    {filteredDiwanPoems.map((poem, pIdx) => (
+                      <div
+                        key={poem.id || pIdx}
+                        className="mat flex flex-col justify-between p-5 bg-paper border border-ink/15 rounded-xs hover:border-ember/60 hover:shadow-md transition text-right"
+                        dir="rtl"
+                      >
+                        <div>
+                          {/* Top Badges */}
+                          <div className="flex items-center justify-between text-xs border-b border-ink/10 pb-2 mb-3">
+                            <span className="ar font-semibold text-ember bg-amber-950/10 px-2 py-0.5 rounded-xs">
+                              بحر {poem.meter}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="sc text-ink/60">
+                                {poem.totalVerses ? `${Math.round(poem.totalVerses / 2)} بيت` : ""}
+                              </span>
+                              <span className="sc text-ink/40">&bull;</span>
+                              <span className="sc text-ink/60">{poem.era}</span>
+                            </div>
+                          </div>
+
+                          {/* Poem Title */}
+                          <h3 className="ar text-2xl font-bold text-ink leading-snug hover:text-ember transition">
+                            {poem.title}
+                          </h3>
+
+                          {/* Couplets Preview */}
+                          <div className="mt-4 space-y-2.5 text-base leading-relaxed pr-3 border-r-2 border-ember/30 bg-amber-950/5 p-3 rounded-xs">
+                            {poem.couplets.slice(0, 3).map((couplet, cIdx) => {
+                              const parts = couplet.split("||");
+                              return (
+                                <p key={cIdx} className="m-0">
+                                  {parts.length === 2 ? (
+                                    <>
+                                      <span className="font-medium text-ink">{parts[0].trim()}</span>
+                                      <span className="text-ember mx-2 select-none">&#10059;</span>
+                                      <span className="font-medium text-ink/90">{parts[1].trim()}</span>
+                                    </>
+                                  ) : (
+                                    <span>{couplet}</span>
+                                  )}
+                                </p>
+                              );
+                            })}
+                            {poem.couplets.length > 3 && (
+                              <p className="text-xs italic text-ink/60 pt-1 select-none">
+                                ... ومجموعها {poem.totalVerses / 2 || poem.totalVerses} بيت شعري
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Card Actions */}
+                        <div className="mt-5 pt-3 border-t border-ink/10 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => handleCopyPoem(poem.couplets.join("\n"), poem.title)}
+                            className="text-xs text-ink/75 hover:text-ember inline-flex items-center gap-1.5 transition px-2.5 py-1 border border-ink/20 rounded-xs"
+                            title="نسخ أبيات القصيدة"
+                          >
+                            <CopyIcon className="w-3.5 h-3.5" />
+                            <span>نسخ الأبيات</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setActiveCloudPoemModal({
+                                id: poem.id,
+                                title: poem.title,
+                                poet: poem.poet,
+                                meter: poem.meter,
+                                era: poem.era,
+                                theme: poem.theme,
+                                poetBio: poem.poetBio || "",
+                                poetUrl: undefined,
+                                poemUrl: poem.url,
+                                verses: poem.verses,
+                                couplets: poem.couplets,
+                                totalVerses: poem.totalVerses,
+                              })
+                            }
+                            className="dbtn text-xs py-1.5 px-4 font-bold inline-flex items-center gap-1.5"
+                          >
+                            <span>قراءة القصيدة كاملة</span>
+                            <span className="text-sm">&larr;</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Pagination */}
+                  {poetDiwanTotalCount > 20 && (
+                    <div className="mt-10">
+                      <Pagination
+                        currentPage={poetDiwanPage}
+                        totalPages={Math.ceil(poetDiwanTotalCount / 20)}
+                        onPageChange={handlePoetDiwanPageChange}
+                        isLoading={poetDiwanLoading}
+                        totalItemsLabel={`إجمالي ديوان ${p.ar || p.name}: ${poetDiwanTotalCount} قصيدة`}
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </section>
+        )}
       </>
     );
   }

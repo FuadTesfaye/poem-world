@@ -246,6 +246,7 @@ export interface DatasetPoetPoemsResponse {
   offset: number;
   page: number;
   limit: number;
+  totalPoetPoems?: number;
   returned: number;
   poems: DatasetPoetPoem[];
   hasMore: boolean;
@@ -282,17 +283,19 @@ export async function fetchDatasetPoetsStream(
  */
 export async function fetchPoetPoemsFromDataset(
   poet: string,
-  offset: number = 0,
+  offset?: number,
   page: number = 1,
-  limit: number = 15
+  limit: number = 20
 ): Promise<DatasetPoetPoemsResponse | null> {
   try {
     const params = new URLSearchParams({
       poet,
-      offset: String(offset),
       page: String(page),
       limit: String(limit),
     });
+    if (typeof offset === "number" && offset > 0) {
+      params.set("offset", String(offset));
+    }
     const res = await fetch(`/api/archive/fuad-poet-poems?${params.toString()}`);
     if (!res.ok) return null;
     return await res.json();

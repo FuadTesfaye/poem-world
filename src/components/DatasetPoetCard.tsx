@@ -26,9 +26,11 @@ export default function DatasetPoetCard({ poet, onOpenDiwan }: DatasetPoetCardPr
         </div>
 
         {/* Poet Name */}
-        <h3 className="ar mt-4 text-[1.85rem] leading-snug text-ink font-medium" dir="rtl">
-          <bdi>{poet.name}</bdi>
-        </h3>
+        <a href={`#/poet/${poet.id || encodeURIComponent(poet.name)}`} className="hover:text-ember transition">
+          <h3 className="ar mt-4 text-[1.85rem] leading-snug text-ink font-medium hover:text-ember transition" dir="rtl">
+            <bdi>{poet.name}</bdi>
+          </h3>
+        </a>
 
         {/* Era & Location Badges */}
         <p className="sc mt-1 text-sm opacity-80" dir="rtl">
@@ -56,14 +58,13 @@ export default function DatasetPoetCard({ poet, onOpenDiwan }: DatasetPoetCardPr
         <span className="sc text-[11px] text-ink/60 uppercase">
           {poet.poemCount ? `${poet.poemCount} قصيدة` : "ديوان شامل"}
         </span>
-        <button
-          type="button"
-          onClick={() => onOpenDiwan(poet)}
+        <a
+          href={`#/poet/${poet.id || encodeURIComponent(poet.name)}`}
           className="dbtn text-xs py-1.5 px-3.5 inline-flex items-center gap-1.5 hover:border-ember hover:text-ember transition"
         >
           <BookIcon className="w-3.5 h-3.5 text-ember" />
           <span>تصفح الديوان</span>
-        </button>
+        </a>
       </div>
     </div>
   );
